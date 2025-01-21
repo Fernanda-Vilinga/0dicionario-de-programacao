@@ -1,0 +1,11 @@
+.env
+node_modules/
+
+.json
+supermercado-52d3a-firebase-adminsdk-02vqj-0026a8c675.json
+# Ignore arquivos sensíveis
+*.env
+*.json
+firebaseConfig.ts
+package.json
+dist/
