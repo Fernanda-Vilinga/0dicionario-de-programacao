@@ -5,7 +5,7 @@ const server = Fastify();
 
 // Configurar o CORS para permitir requisições do frontend
 server.register(cors, {
-  origin: 'http://localhost:8081', // Substitua pela URL do frontend
+  origin: process.env.FRONTEND_URL, // Substitua pela URL do frontend
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 });
