@@ -1,25 +1,62 @@
-import fastify from 'fastify';
+import Fastify from 'fastify';
 import fastifyJwt from '@fastify/jwt';
-import bcrypt from 'bcrypt';
-import db from './firebaseConfig';
+import fastifyCors from '@fastify/cors';
+import  statusRoutes  from './routes/status';
+import registerAdminRoutes from './routes/auth/registerAdmin';
+import registerUserRoutes from './routes/auth/registerUser';
+import loginRoutes from './routes/auth/login';
+import promoteMentorRoutes from './routes/auth/promoteMentor';
+import dicionarioRoutes from './routes/dictionary';
+import quizRoutes from './routes/quiz';
+import notasRoutes from './routes/notes';
+import mentoriaRoutes from './routes/mentorship';
+import chatRoutes from './routes/chat';
+
+import profileRoutes from './routes/perfilRoutes';
+import settingsRoutes from './routes/settingsRoutes';
+import favoritesRoutes from './routes/favorites';
+import suggestionsRoutes from './routes/suggestsRoutes';
+import historyRoutes from './routes/history';
+import aboutRoutes from './routes/about';
 
 
+import { METHODS } from 'http';
 
-// Extensão do tipo Fastify
-declare module 'fastify' {
-  interface FastifyInstance {
-    authenticate: (req: any, reply: any) => Promise<void>;
-  }
-}
+const app = Fastify({ logger: true });
 
-const app = fastify({ logger: true });
-
-// Configurar JWT
+// Configuração do JWT
 app.register(fastifyJwt, {
   secret: 'Vilinga-key',
 });
 
-// Middleware para verificar JWT
+// Rota para verificar o status da API
+app.register(statusRoutes);
+
+// Rotas de autenticação
+app.register(registerAdminRoutes);
+app.register(registerUserRoutes);
+app.register(loginRoutes);
+app.register(promoteMentorRoutes);
+
+//Rota do dicionário
+app.register(dicionarioRoutes)
+//Rota do quiz
+app.register(quizRoutes)
+//Rota do bloco de notas 
+app.register(notasRoutes)
+//Rota da mentoria
+app.register(mentoriaRoutes)
+// Rota de chat
+app.register(chatRoutes);
+
+
+app.register(profileRoutes);
+app.register(settingsRoutes);
+app.register(favoritesRoutes);
+app.register(suggestionsRoutes);
+app.register(historyRoutes);
+app.register(aboutRoutes);
+// Middleware de autenticação
 app.decorate('authenticate', async (req: any, reply: any) => {
   try {
     await req.jwtVerify();
@@ -28,138 +65,21 @@ app.decorate('authenticate', async (req: any, reply: any) => {
   }
 });
 
-// Rota inicial
-app.get('/', async () => {
-  return { message: 'API do Dicionário de Programação em funcionamento!' };
-});
 
-// Rota para registrar administrador (somente um admin pré-cadastrado)
-app.post('/auth/registeradmin', async (req, reply) => {
-  const { nome, email, senha } = req.body as { nome: string; email: string; senha: string; };
 
-  if (!nome || !email || !senha) {
-    return reply.status(400).send({ message: 'Preencha todos os campos.' });
-  }
-
+app.register(fastifyCors,{
+  origin:'*',methods:['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS'],
+  allowedHeaders:['Authorization','Content-type'],
+})
+// Inicia o servidor
+const start = async () => {
   try {
-    const userRef = db.collection('usuarios').where('email', '==', email).limit(1);
-    const existingUser = await userRef.get();
-
-    if (!existingUser.empty) {
-      return reply.status(400).send({ message: 'Usuário já cadastrado.' });
-    }
-
-    const hashedPassword = await bcrypt.hash(senha, 10);
-
-    const newAdmin = await db.collection('usuarios').add({
-      nome,
-      email,
-      senha: hashedPassword,
-      tipo_de_usuario: 'ADMIN',
-    });
-
-    return reply.status(201).send({ message: 'Administrador criado com sucesso', id: newAdmin.id });
-  } catch (error) {
-    console.error(error);
-    return reply.status(500).send({ message: 'Erro ao criar administrador' });
+    await app.listen({ port: Number(process.env.PORT) });
+    console.log(`Servidor rodando em http://localhost:${process.env.PORT}`);
+  } catch (err) {
+    //app.log.error(err);
+    //process.exit(1);
   }
-});
+};
 
-// Rota para registrar um usuário comum (USER)
-app.post('/auth/registeruser', async (req, reply) => {
-  const { nome, email, senha } = req.body as { nome: string; email: string; senha: string; };
-
-  if (!nome || !email || !senha) {
-    return reply.status(400).send({ message: 'Preencha todos os campos.' });
-  }
-
-  try {
-    const userRef = db.collection('usuarios').where('email', '==', email).limit(1);
-    const existingUser = await userRef.get();
-
-    if (!existingUser.empty) {
-      return reply.status(400).send({ message: 'Usuário já cadastrado.' });
-    }
-
-    const hashedPassword = await bcrypt.hash(senha, 10);
-
-    const newUser = await db.collection('usuarios').add({
-      nome,
-      email,
-      senha: hashedPassword,
-      tipo_de_usuario: 'USER',
-    });
-
-    return reply.status(201).send({ message: 'Usuário criado com sucesso', id: newUser.id });
-  } catch (error) {
-    console.error(error);
-    return reply.status(500).send({ message: 'Erro ao criar usuário' });
-  }
-});
-
-// Rota para solicitar promoção a mentor
-app.post('/auth/promovermentores', { preHandler: [app.authenticate] }, async (req, reply) => {
-  const { email } = req.body as { email: string; };
-  
-  if (!email) {
-    return reply.status(400).send({ message: 'Preencha o email do usuário.' });
-  }
-
-  try {
-    const userRef = db.collection('usuarios').where('email', '==', email).limit(1);
-    const user = await userRef.get();
-
-    if (user.empty) {
-      return reply.status(404).send({ message: 'Usuário não encontrado.' });
-    }
-
-    const userData = user.docs[0].data();
-
-    // Verifica se o usuário já é um mentor
-    if (userData.tipo_de_usuario === 'MENTOR') {
-      return reply.status(400).send({ message: 'Usuário já é mentor.' });
-    }
-
-    // Atualiza o tipo de usuário para MENTOR
-    await user.docs[0].ref.update({ tipo_de_usuario: 'MENTOR' });
-
-    return reply.status(200).send({ message: 'Usuário promovido a mentor com sucesso!' });
-  } catch (error) {
-    console.error(error);
-    return reply.status(500).send({ message: 'Erro ao promover usuário.' });
-  }
-});
-
-// Outras rotas podem ser adicionadas aqui...
-// Rota para login (adicionar ao seu servidor)
-app.post('/auth/login', async (req, reply) => {
-  const { email, senha } = req.body as { email: string; senha: string; };
-
-  if (!email || !senha) {
-    return reply.status(400).send({ message: 'Preencha todos os campos.' });
-  }
-
-  try {
-    const userRef = db.collection('usuarios').where('email', '==', email).limit(1);
-    const user = await userRef.get();
-
-    if (user.empty) {
-      return reply.status(404).send({ message: 'Usuário não encontrado.' });
-    }
-
-    const userData = user.docs[0].data();
-    const match = await bcrypt.compare(senha, userData.senha);
-
-    if (!match) {
-      return reply.status(401).send({ message: 'Senha incorreta.' });
-    }
-
-    const token = app.jwt.sign({ id: user.docs[0].id });
-    return reply.send({ message: 'Login bem-sucedido', nome: userData.nome, token });
-  } catch (error) {
-    console.error(error);
-    return reply.status(500).send({ message: 'Erro no login' });
-  }
-});
-
-export default app;
+start();
