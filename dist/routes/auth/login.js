@@ -17,28 +17,45 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const firebaseConfig_1 = __importDefault(require("../../firebaseConfig"));
 function loginRoutes(app) {
     return __awaiter(this, void 0, void 0, function* () {
-        app.post('/auth/login', (req, reply) => __awaiter(this, void 0, void 0, function* () {
+        app.post("/auth/login", (req, reply) => __awaiter(this, void 0, void 0, function* () {
             const { email, senha } = req.body;
             if (!email || !senha) {
-                return reply.status(400).send({ message: 'Preencha todos os campos.' });
+                return reply.status(400).send({ message: "Preencha todos os campos." });
             }
             try {
-                const userRef = firebaseConfig_1.default.collection('usuarios').where('email', '==', email).limit(1);
+                const userRef = firebaseConfig_1.default.collection("usuarios").where("email", "==", email).limit(1);
                 const user = yield userRef.get();
                 if (user.empty) {
-                    return reply.status(404).send({ message: 'Usuário não encontrado.' });
+                    return reply.status(404).send({ message: "Usuário não encontrado." });
                 }
-                const userData = user.docs[0].data();
+                const userDoc = user.docs[0]; // Pegando o documento do usuário
+                const userData = userDoc.data();
+                console.log("🔍 Usuário encontrado:", userData);
+                if (!userData.senha) {
+                    return reply.status(500).send({ message: "Erro no servidor: senha não encontrada." });
+                }
                 const match = yield bcrypt_1.default.compare(senha, userData.senha);
                 if (!match) {
-                    return reply.status(401).send({ message: 'Senha incorreta.' });
+                    return reply.status(401).send({ message: "Senha incorreta." });
                 }
-                const token = app.jwt.sign({ id: user.docs[0].id });
-                return reply.send({ message: 'Login bem-sucedido', nome: userData.nome, token });
+                const usuarioId = userDoc.id; // Pegando o ID do usuário
+                const token = app.jwt.sign({ id: usuarioId });
+                // Normalizando tipo de usuário
+                const userType = typeof userData.tipo_de_usuario === "string" && userData.tipo_de_usuario.trim() !== ""
+                    ? userData.tipo_de_usuario.trim().toUpperCase()
+                    : "USUARIO";
+                console.log("✅ Login bem-sucedido:", { nome: userData.nome, usuarioId, userType });
+                return reply.send({
+                    message: "Login bem-sucedido",
+                    nome: userData.nome,
+                    token,
+                    usuarioId, // Agora o ID do usuário será retornado
+                    userType,
+                });
             }
             catch (error) {
-                console.error(error);
-                return reply.status(500).send({ message: 'Erro no login' });
+                console.error("❌ Erro no login:", error);
+                return reply.status(500).send({ message: "Erro interno no servidor." });
             }
         }));
     });

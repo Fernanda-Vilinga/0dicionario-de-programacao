@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import HeaderHomes from '../HeaderHomes';
-HeaderHomes
+
 const MentorDashboard = () => {
   return (
 

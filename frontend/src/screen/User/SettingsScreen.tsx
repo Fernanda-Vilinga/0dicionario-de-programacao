@@ -1,28 +1,56 @@
-import React from 'react';
-import { View, Text, StyleSheet, Switch, TouchableOpacity } from 'react-native';
-import HeaderComum from '../HeaderComum'
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert } from 'react-native';
+import HeaderComum from '../HeaderComum';
 
 const SettingsScreen = () => {
-  const [isDarkMode, setIsDarkMode] = React.useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+
+  const toggleDarkMode = () => setIsDarkMode((prev) => !prev);
+  const toggleNotifications = () => setNotificationsEnabled((prev) => !prev);
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Excluir Conta",
+      "Tem certeza de que deseja excluir sua conta? Esta ação não pode ser desfeita.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Excluir", onPress: () => console.log("Conta excluída"), style: "destructive" }
+      ]
+    );
+  };
 
   return (
-    <View >
-       <View style={styles.header}>
-        <HeaderComum screenName="Definições" />
-      </View>
-      <View style={styles.container}>
+    <View style={styles.container}>
+      {/* Cabeçalho */}
+      <HeaderComum screenName="Definições" />
+
       <Text style={styles.title}>Configurações Gerais</Text>
 
-      <Text style={styles.settingText}>Modo Escuro</Text>
-      <Switch value={isDarkMode} onValueChange={setIsDarkMode} />
+      {/* Modo Escuro */}
+      <View style={styles.settingRow}>
+        <Text style={styles.settingText}>Modo Escuro</Text>
+        <Switch value={isDarkMode} onValueChange={toggleDarkMode} />
+      </View>
 
-      <TouchableOpacity style={styles.button}>
-        <Text style={styles.buttonText}>Salvar Configurações</Text>
-      </TouchableOpacity>
+      {/* Notificações */}
+      <View style={styles.settingRow}>
+        <Text style={styles.settingText}>Notificações</Text>
+        <Switch value={notificationsEnabled} onValueChange={toggleNotifications} />
+      </View>
+
+      {/* Botões de Ações */}
       <TouchableOpacity style={styles.button}>
         <Text style={styles.buttonText}>Solicitar promoção para mentor</Text>
       </TouchableOpacity>
-    </View>
+
+      <TouchableOpacity style={styles.button}>
+        <Text style={styles.buttonText}>Alterar Senha</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
+        <Text style={styles.deleteButtonText}>Excluir Conta</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -30,12 +58,12 @@ const SettingsScreen = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#f5f5f5' },
   title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
-  settingText: { fontSize: 18, marginVertical: 10 },
-  button: { backgroundColor: '#2979FF', padding: 15, borderRadius: 5, marginTop: 20 },
-  buttonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },  header:{
-    flex:1 ,
-    backgroundColor:'#f5f5f5'
-  }
+  settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  settingText: { fontSize: 18 },
+  button: { backgroundColor: '#2979FF', padding: 15, borderRadius: 5, marginVertical: 10 },
+  buttonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
+  deleteButton: { backgroundColor: 'red', padding: 15, borderRadius: 5, marginTop: 20 },
+  deleteButtonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
 });
 
 export default SettingsScreen;

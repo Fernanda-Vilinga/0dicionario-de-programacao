@@ -49,6 +49,7 @@ export type RootStackParamList = {
   Relatorios: undefined;
   Configuracoes: undefined;
   AdminNavigator:undefined
-  MentorNavigator:undefined
+  MentorNavigator:undefined;
+  Dashboard:undefined
 };
 

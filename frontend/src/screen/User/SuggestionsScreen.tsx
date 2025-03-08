@@ -1,27 +1,93 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import HeaderComum from '../HeaderComum'
-const SugestoesScreen = () => {
-  return (
-    <View>
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, Button, Alert } from 'react-native';
+import HeaderComum from '../HeaderComum';
 
-        <View style={styles.header}>
-<HeaderComum  screenName="Sugestões"/>
-        </View>
-        <View style={styles.container}>
+// ✅ Definição do tipo para uma sugestão
+type Sugestao = {
+  id: string;
+  termo: string;
+  definicao: string;
+};
+
+const API_URL = 'http://192.168.0.132:3030/sugestoes'; // Atualize conforme necessário
+
+const SugestoesScreen: React.FC = () => {
+  const [sugestao, setSugestao] = useState<string>('');
+  const [sugestoes, setSugestoes] = useState<Sugestao[]>([]);
+
+  // 🔥 Buscar sugestões do backend
+  const fetchSugestoes = async () => {
+    try {
+      const response = await fetch(API_URL);
+      if (!response.ok) throw new Error('Erro ao buscar sugestões.');
+      const data: Sugestao[] = await response.json();
+      setSugestoes(data);
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Erro', 'Não foi possível carregar as sugestões.');
+    }
+  };
+
+  // 🔥 Chamar a API ao abrir a tela
+  useEffect(() => {
+    fetchSugestoes();
+  }, []);
+
+  // 🔥 Enviar sugestão ao backend
+  const enviarSugestao = async () => {
+    if (!sugestao.trim()) {
+      Alert.alert('Aviso', 'Digite uma sugestão antes de enviar.');
+      return;
+    }
+
+    try {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          usuarioId: '123456', // Substituir pelo ID real do usuário autenticado
+          sugestao,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Erro ao enviar sugestão.');
+
+      Alert.alert('Sucesso', 'Sugestão enviada com sucesso!');
+      setSugestao('');
+      fetchSugestoes(); // Atualiza a lista de sugestões
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Erro', 'Ocorreu um erro ao enviar a sugestão.');
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <HeaderComum screenName="Sugestões" />
       <Text style={styles.title}>Contribua para o crescimento da nossa App</Text>
+
+      {/* Campo de entrada para a sugestão */}
+      <TextInput
+        style={styles.input}
+        placeholder="Digite sua sugestão..."
+        value={sugestao}
+        onChangeText={setSugestao}
+      />
+
+      {/* Botão para enviar a sugestão */}
+      <Button title="Enviar Sugestão" onPress={enviarSugestao} color="#004AAD" />
+
       <ScrollView style={styles.suggestionsContainer}>
-        <Text style={styles.suggestion}>Sugestão 1: Adicionar mais termos de programação ao dicionário.</Text>
-        <Text style={styles.suggestion}>Sugestão 2: Melhorar o algoritmo de recomendações de mentores.</Text>
-        <Text style={styles.suggestion}>Sugestão 3: Incluir mais quizzes interativos para os usuários.</Text>
-        <Text style={styles.suggestion}>Sugestão 1: Adicionar mais termos de programação ao dicionário.</Text>
-        <Text style={styles.suggestion}>Sugestão 2: Melhorar o algoritmo de recomendações de mentores.</Text>
-        <Text style={styles.suggestion}>Sugestão 3: Incluir mais quizzes interativos para os usuários.</Text>
-        <Text style={styles.suggestion}>Sugestão 1: Adicionar mais termos de programação ao dicionário.</Text>
-        <Text style={styles.suggestion}>Sugestão 2: Melhorar o algoritmo de recomendações de mentores.</Text>
-        <Text style={styles.suggestion}>Sugestão 3: Incluir mais quizzes interativos para os usuários.</Text>
+        {sugestoes.length > 0 ? (
+          sugestoes.map((item) => (
+            <Text key={item.id} style={styles.suggestion}>
+              {item.termo} - {item.definicao}
+            </Text>
+          ))
+        ) : (
+          <Text style={styles.suggestion}>Nenhuma sugestão ainda...</Text>
+        )}
       </ScrollView>
-    </View>
     </View>
   );
 };
@@ -31,28 +97,38 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     backgroundColor: '#f5f5f5',
-     justifyContent:'center',
-    alignItems:'center'
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 15,
+    textAlign: 'center',
     color: 'black',
   },
+  input: {
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+    backgroundColor: 'white',
+  },
   suggestionsContainer: {
-    marginTop: 10,
-    width:700,
-
+    marginTop: 15,
   },
   suggestion: {
     fontSize: 16,
     color: '#555',
     marginBottom: 10,
-  },
-  header: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: '#fff',
+    padding: 10,
+    borderRadius: 5,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
 });
 

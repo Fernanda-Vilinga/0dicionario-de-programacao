@@ -35,9 +35,9 @@ const QuizScreen = () => {
   return (
     <View style={styles.container}>
       {/* Header */}
-     <View style={styles.header}>
-      <HeaderComum screenName="Quiz" />
-     </View>
+      <View style={styles.header}>
+        <HeaderComum screenName="Quiz" />
+      </View>
 
       {/* Conteúdo da Tela */}
       <ScrollView contentContainerStyle={styles.content}>
@@ -72,10 +72,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  header: {
+    height: 60, // Ajuste conforme necessário
+    justifyContent: 'center',
+    backgroundColor: '#f5f5f5',
+  },
   content: {
+    flexGrow: 1, // Permite que o ScrollView ocupe todo o espaço disponível
     padding: 20,
     alignItems: 'center',
-    marginTop:20
   },
   welcome: {
     fontSize: 24,
@@ -110,10 +115,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#2979FF',
   },
-  header:{
-    flex:1 ,
-    backgroundColor:'#f5f5f5'
-  }
 });
 
 export default QuizScreen;
+ 

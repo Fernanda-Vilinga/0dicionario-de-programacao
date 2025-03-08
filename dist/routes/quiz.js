@@ -14,9 +14,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = quizRoutes;
 const firebaseConfig_1 = __importDefault(require("../firebaseConfig"));
+// ---------------------
+// Rotas do Quiz
+// ---------------------
 function quizRoutes(app) {
     return __awaiter(this, void 0, void 0, function* () {
-        // Rota para responder quiz
+        // Rota para responder o quiz (usuário responde e pontuação é calculada)
         app.post('/quiz/responder', (req, reply) => __awaiter(this, void 0, void 0, function* () {
             const { usuarioId, respostas } = req.body;
             if (!usuarioId || !respostas || !Array.isArray(respostas)) {
@@ -24,13 +27,13 @@ function quizRoutes(app) {
             }
             try {
                 let score = 0;
-                // Verificar respostas e calcular pontuação
+                // Calcula a pontuação com base nas respostas corretas
                 for (let resposta of respostas) {
                     if (resposta.correta) {
                         score++;
                     }
                 }
-                // Salvar pontuação do usuário
+                // Salva a pontuação do usuário no Firestore
                 yield firebaseConfig_1.default.collection('pontuacoes').add({
                     usuarioId,
                     score,
@@ -39,8 +42,87 @@ function quizRoutes(app) {
                 return reply.send({ message: 'Quiz respondido com sucesso.', score });
             }
             catch (error) {
-                console.error(error);
+                console.error("Erro ao responder quiz:", error);
                 return reply.status(500).send({ message: 'Erro ao responder quiz.' });
+            }
+        }));
+        // ---------------------
+        // Rotas para gerenciamento de perguntas do quiz (para o admin)
+        // ---------------------
+        // Criar uma nova pergunta de quiz
+        app.post('/quiz/perguntas', (req, reply) => __awaiter(this, void 0, void 0, function* () {
+            const { categoria, pergunta, opcoes, respostaCorreta } = req.body;
+            if (!categoria || !pergunta || !opcoes || opcoes.length === 0 || respostaCorreta === undefined) {
+                return reply.status(400).send({ message: 'Todos os campos são obrigatórios.' });
+            }
+            try {
+                const newQuestion = yield firebaseConfig_1.default.collection('quizPerguntas').add({
+                    categoria,
+                    pergunta,
+                    opcoes,
+                    respostaCorreta,
+                    dataCriacao: new Date(),
+                });
+                return reply.status(201).send({ message: 'Pergunta criada com sucesso.', id: newQuestion.id });
+            }
+            catch (error) {
+                console.error("Erro ao criar pergunta:", error);
+                return reply.status(500).send({ message: 'Erro ao criar pergunta.' });
+            }
+        }));
+        // Listar perguntas de quiz (opcionalmente filtradas por categoria)
+        app.get('/quiz/perguntas', (req, reply) => __awaiter(this, void 0, void 0, function* () {
+            const { categoria } = req.query;
+            try {
+                let query = firebaseConfig_1.default.collection('quizPerguntas');
+                if (categoria) {
+                    let query = firebaseConfig_1.default.collection('quizPerguntas');
+                }
+                const snapshot = yield query.get();
+                if (snapshot.empty) {
+                    return reply.send([]);
+                }
+                const questions = snapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
+                return reply.send(questions);
+            }
+            catch (error) {
+                console.error("Erro ao listar perguntas:", error);
+                return reply.status(500).send({ message: 'Erro ao listar perguntas.' });
+            }
+        }));
+        // Atualizar uma pergunta de quiz
+        app.put('/quiz/perguntas/:id', (req, reply) => __awaiter(this, void 0, void 0, function* () {
+            const { id } = req.params;
+            const updates = req.body;
+            try {
+                const questionRef = firebaseConfig_1.default.collection('quizPerguntas').doc(id);
+                const doc = yield questionRef.get();
+                if (!doc.exists) {
+                    return reply.status(404).send({ message: 'Pergunta não encontrada.' });
+                }
+                yield questionRef.update(Object.assign({}, updates));
+                return reply.send({ message: 'Pergunta atualizada com sucesso.' });
+            }
+            catch (error) {
+                console.error("Erro ao atualizar pergunta:", error);
+                return reply.status(500).send({ message: 'Erro ao atualizar pergunta.' });
+            }
+        }));
+        // Deletar uma pergunta de quiz
+        app.delete('/quiz/perguntas/:id', (req, reply) => __awaiter(this, void 0, void 0, function* () {
+            const { id } = req.params;
+            try {
+                const questionRef = firebaseConfig_1.default.collection('quizPerguntas').doc(id);
+                const doc = yield questionRef.get();
+                if (!doc.exists) {
+                    return reply.status(404).send({ message: 'Pergunta não encontrada.' });
+                }
+                yield questionRef.delete();
+                return reply.send({ message: 'Pergunta deletada com sucesso.' });
+            }
+            catch (error) {
+                console.error("Erro ao deletar pergunta:", error);
+                return reply.status(500).send({ message: 'Erro ao deletar pergunta.' });
             }
         }));
     });

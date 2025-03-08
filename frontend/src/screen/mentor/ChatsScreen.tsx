@@ -8,7 +8,7 @@ const ChatsScreen = () => {
   return (
     <View >
        <View style={styles.header}>
-        <HeaderComum screenName="Definições" />
+        <HeaderComum screenName="Conversas" />
       </View>
       <View style={styles.container}>
       <Text style={styles.title}>Descarregando conversas ... 12%</Text>

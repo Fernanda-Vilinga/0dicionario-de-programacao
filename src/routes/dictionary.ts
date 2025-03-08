@@ -1,7 +1,15 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import db from '../firebaseConfig';
 
-// Tipagem para o corpo da requisição POST
+interface Termo {
+  id: string;
+  termo: string;
+  termo_lower: string;
+  definicao: string;
+  exemplos?: string[];
+  linguagem?: string;
+}
+
 interface TermoBody {
   termo: string;
   definicao: string;
@@ -9,37 +17,66 @@ interface TermoBody {
   linguagem?: string;
 }
 
-// Tipagem para os parâmetros de consulta (query)
 interface TermoQuery {
-  termo: string;
+  termo?: string;
 }
 
 export default async function dicionarioRoutes(app: FastifyInstance) {
-  // Rota para pesquisar termos
+  // 🔍 Rota para buscar um termo específico (prefix match + case sensitive)
   app.get('/dicionario/termos', async (req: FastifyRequest<{ Querystring: TermoQuery }>, reply: FastifyReply) => {
-    const { termo } = req.query;
-
+    let { termo } = req.query;
+  
     if (!termo) {
       return reply.status(400).send({ message: 'Termo não fornecido.' });
     }
-
+  
     try {
-      const termRef = db.collection('termos').where('termo', '>=', termo).where('termo', '<=', termo + '\uf8ff');
+      const termoLower = termo.toLowerCase();
+  
+      // 🔥 Agora usamos `array-contains` para buscar termos começando com o que foi digitado
+      const termRef = db.collection('termos').where('termo_array', 'array-contains', termoLower);
       const termSnapshot = await termRef.get();
-      
+  
       if (termSnapshot.empty) {
-        return reply.status(404).send({ message: 'Termo não encontrado.' });
+        return reply.status(404).send({ message: 'Nenhum termo encontrado.' });
       }
-
-      const termos = termSnapshot.docs.map(doc => doc.data());
+  
+      const termos: Termo[] = termSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data() as Omit<Termo, 'id'>,
+      }));
+  
       return reply.send(termos);
     } catch (error) {
-      console.error(error);
+      console.error("Erro ao buscar termo:", error);
       return reply.status(500).send({ message: 'Erro ao buscar termo' });
     }
   });
+  
 
-  // Rota para o Admin adicionar um termo
+  // 📌 Rota para listar todos os termos cadastrados
+  app.get('/dicionario/todos', async (_, reply: FastifyReply) => {
+    try {
+      const termRef = db.collection('termos');
+      const termSnapshot = await termRef.get();
+
+      if (termSnapshot.empty) {
+        return reply.send([]);
+      }
+
+      const termos: Termo[] = termSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data() as Omit<Termo, 'id'>,
+      }));
+
+      return reply.send(termos);
+    } catch (error) {
+      console.error("Erro ao buscar todos os termos:", error);
+      return reply.status(500).send({ message: 'Erro ao buscar os termos' });
+    }
+  });
+
+  // ✅ Rota para adicionar um termo
   app.post('/dicionario/termo', async (req: FastifyRequest<{ Body: TermoBody }>, reply: FastifyReply) => {
     const { termo, definicao, exemplos, linguagem } = req.body;
 
@@ -50,14 +87,15 @@ export default async function dicionarioRoutes(app: FastifyInstance) {
     try {
       const newTerm = await db.collection('termos').add({
         termo,
+        termo_lower: termo.toLowerCase(), // Garante buscas insensíveis a maiúsculas/minúsculas
         definicao,
-        exemplos,
-        linguagem,
+        exemplos: exemplos || [],
+        linguagem: linguagem || 'Geral',
       });
 
       return reply.status(201).send({ message: 'Termo adicionado com sucesso.', id: newTerm.id });
     } catch (error) {
-      console.error(error);
+      console.error("Erro ao adicionar termo:", error);
       return reply.status(500).send({ message: 'Erro ao adicionar termo.' });
     }
   });

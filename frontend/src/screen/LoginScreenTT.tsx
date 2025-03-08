@@ -6,8 +6,9 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import API_BASE_URL from "src/config";
+import API_BASE_URL from 'src/config';
 
+// Definição das telas da navegação
 type RootStackParamList = {
   Loading: undefined;
   LoginRegister: undefined;
@@ -20,7 +21,7 @@ type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, "Dashbo
 
 const { width } = Dimensions.get("window");
 
-const LoginScreen: React.FC = () => {
+const LoginScreen = () => {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const navigation = useNavigation<LoginScreenNavigationProp>();
@@ -29,20 +30,16 @@ const LoginScreen: React.FC = () => {
     checkUserLoggedIn();
   }, []);
 
-  // Verifica se há um token, tipo e usuárioId salvos e navega automaticamente
+  // Verifica se há um token salvo e direciona para a home correta
   const checkUserLoggedIn = async () => {
     try {
       const token = await AsyncStorage.getItem("userToken");
-      const userType = (await AsyncStorage.getItem("userType")) || "";
-      const usuarioId = await AsyncStorage.getItem("usuarioId"); // Pegando o ID do usuário
+      const userType = (await AsyncStorage.getItem("userType"))?.trim().toUpperCase();
 
-      console.log("Usuário logado anteriormente:", {
-        userType: userType.trim().toUpperCase(),
-        usuarioId,
-      });
+      console.log("Usuário logado anteriormente:", userType);
 
-      if (token && userType.trim()) {
-        navigateToHome(userType.trim().toUpperCase(), usuarioId);
+      if (token && userType) {
+        navigateToHome(userType);
       }
     } catch (error) {
       console.error("Erro ao recuperar token:", error);
@@ -65,21 +62,15 @@ const LoginScreen: React.FC = () => {
       const data = await response.json();
       console.log("Resposta do servidor:", data);
 
-      if (response.ok && data.userType && data.usuarioId) {
+      if (response.ok && data.userType) {
         const normalizedUserType = data.userType.trim().toUpperCase();
 
-        // Salva token, userType e usuarioId no AsyncStorage
-        await AsyncStorage.multiSet([
-          ["userToken", data.token],
-          ["userType", normalizedUserType],
-          ["usuarioId", data.usuarioId],
-        ]);
+        await AsyncStorage.removeItem("userType");
+        await AsyncStorage.setItem("userToken", data.token);
+        await AsyncStorage.setItem("userType", normalizedUserType);
 
-        console.log("Usuário salvo no AsyncStorage:", { 
-          userType: normalizedUserType, 
-          usuarioId: data.usuarioId 
-        });
-        navigateToHome(normalizedUserType, data.usuarioId);
+        console.log("Usuário salvo no AsyncStorage:", normalizedUserType);
+        navigateToHome(normalizedUserType);
       } else {
         Alert.alert("Erro no login", data.message || "Tente novamente.");
       }
@@ -89,12 +80,14 @@ const LoginScreen: React.FC = () => {
     }
   };
 
-  const navigateToHome = (userType: string, usuarioId?: string | null) => {
-    console.log("Tipo de usuário detectado:", userType, "ID do usuário:", usuarioId);
+  const navigateToHome = (userType: string) => {
+    const normalizedType = userType.trim().toUpperCase();
 
-    if (userType === "ADMIN") {
+    console.log("Tipo de usuário detectado:", normalizedType);
+
+    if (normalizedType === "ADMIN") {
       navigation.replace("AdminDashboard");
-    } else if (userType === "MENTOR") {
+    } else if (normalizedType === "MENTOR") {
       navigation.replace("MentorNavigator");
     } else {
       navigation.replace("Dashboard");
@@ -127,7 +120,7 @@ const LoginScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   loginBox: {
-    width: width * 0.6,
+    width: width * 0.4,
     backgroundColor: "#FFF",
     padding: 20,
     borderRadius: 10,

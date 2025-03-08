@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, Text, StyleSheet, Dimensions } from 'react-native';
-import { useNavigation } from '@react-navigation/native'; // Hook de navegação
-import { StackNavigationProp } from '@react-navigation/stack'; // Importando o tipo de navegação
-
-// Defina os tipos das telas da navegação
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import API_BASE_URL from 'src/config';
+// Definição das telas da navegação
 type RootStackParamList = {
   Loading: undefined;
   LoginRegister: undefined;
@@ -19,15 +19,49 @@ const CadastroScreen = () => {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmSenha, setConfirmSenha] = useState('');
-  const navigation = useNavigation<CadastroScreenNavigationProp>(); // Tipando o navigation
+  const navigation = useNavigation<CadastroScreenNavigationProp>();
 
-  const handleCadastro = () => {
-    // Lógica de cadastro
-    if (senha === confirmSenha) {
-      // Navega para a tela Dashboard após o cadastro bem-sucedido
-      navigation.navigate('Dashboard');
-    } else {
-      alert('As senhas não coincidem');
+  
+
+  const handleCadastro = async () => {
+    if (!nome || !email || !senha || !confirmSenha) {
+      alert('Preencha todos os campos.');
+      return;
+    }
+
+    if (senha !== confirmSenha) {
+      alert('As senhas não coincidem.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/registeruser`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nome,
+          email,
+          senha,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert('Cadastro realizado com sucesso!');
+        console.log('Token recebido:', data.token);
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Dashboard' }],
+        });
+      } else {
+        alert(`Erro no cadastro: ${data.message || 'Tente novamente mais tarde.'}`);
+      }
+    } catch (error) {
+      console.error('Erro na requisição:', error);
+      alert('Erro ao conectar com o servidor.');
     }
   };
 
@@ -44,6 +78,7 @@ const CadastroScreen = () => {
         style={styles.input}
         placeholder="Email"
         placeholderTextColor="#888"
+        keyboardType="email-address"
         value={email}
         onChangeText={setEmail}
       />
@@ -72,7 +107,7 @@ const CadastroScreen = () => {
 
 const styles = StyleSheet.create({
   loginBox: {
-    width: width * 0.4,
+    width: width * 0.6,
     backgroundColor: '#FFF',
     padding: 20,
     borderRadius: 10,

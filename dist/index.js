@@ -15,7 +15,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const fastify_1 = __importDefault(require("fastify"));
 const jwt_1 = __importDefault(require("@fastify/jwt"));
 const cors_1 = __importDefault(require("@fastify/cors"));
-const status_1 = __importDefault(require("./routes/status"));
+const formbody_1 = __importDefault(require("@fastify/formbody"));
+// Importação das rotas
+const statusRoutes_1 = __importDefault(require("./routes/statusRoutes"));
 const registerAdmin_1 = __importDefault(require("./routes/auth/registerAdmin"));
 const registerUser_1 = __importDefault(require("./routes/auth/registerUser"));
 const login_1 = __importDefault(require("./routes/auth/login"));
@@ -32,34 +34,19 @@ const suggestsRoutes_1 = __importDefault(require("./routes/suggestsRoutes"));
 const history_1 = __importDefault(require("./routes/history"));
 const about_1 = __importDefault(require("./routes/about"));
 const app = (0, fastify_1.default)({ logger: true });
-// Configuração do JWT
+// 🔹 Configuração do CORS (deve vir antes das rotas!)
+app.register(cors_1.default, {
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Authorization', 'Content-Type'],
+});
+// 🔹 Configuração do JWT
 app.register(jwt_1.default, {
     secret: 'Vilinga-key',
 });
-// Rota para verificar o status da API
-app.register(status_1.default);
-// Rotas de autenticação
-app.register(registerAdmin_1.default);
-app.register(registerUser_1.default);
-app.register(login_1.default);
-app.register(promoteMentor_1.default);
-//Rota do dicionário
-app.register(dictionary_1.default);
-//Rota do quiz
-app.register(quiz_1.default);
-//Rota do bloco de notas 
-app.register(notes_1.default);
-//Rota da mentoria
-app.register(mentorship_1.default);
-// Rota de chat
-app.register(chat_1.default);
-app.register(perfilRoutes_1.default);
-app.register(settingsRoutes_1.default);
-app.register(favorites_1.default);
-app.register(suggestsRoutes_1.default);
-app.register(history_1.default);
-app.register(about_1.default);
-// Middleware de autenticação
+// 🔹 Suporte para JSON no corpo das requisições
+app.register(formbody_1.default);
+// 🔹 Middleware de autenticação
 app.decorate('authenticate', (req, reply) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         yield req.jwtVerify();
@@ -68,19 +55,34 @@ app.decorate('authenticate', (req, reply) => __awaiter(void 0, void 0, void 0, f
         reply.send(err);
     }
 }));
-app.register(cors_1.default, {
-    origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'],
-    allowedHeaders: ['Authorization', 'Content-type'],
-});
-// Inicia o servidor
+// 🔹 Registro das Rotas
+app.register(statusRoutes_1.default);
+app.register(registerAdmin_1.default);
+app.register(registerUser_1.default);
+app.register(login_1.default);
+app.register(promoteMentor_1.default);
+app.register(dictionary_1.default);
+app.register(quiz_1.default);
+app.register(notes_1.default);
+app.register(mentorship_1.default);
+app.register(chat_1.default);
+app.register(perfilRoutes_1.default);
+app.register(settingsRoutes_1.default);
+app.register(favorites_1.default);
+app.register(suggestsRoutes_1.default);
+app.register(history_1.default);
+app.register(about_1.default);
+// 🔹 Inicia o servidor
 const start = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        yield app.listen({ port: Number(process.env.PORT) });
-        console.log(`Servidor rodando em http://localhost:${process.env.PORT}`);
+        const PORT = Number(process.env.PORT) || 3030;
+        const HOST = '0.0.0.0'; // Permite que o backend seja acessado pelo React Native
+        yield app.listen({ port: PORT, host: HOST });
+        console.log(`🚀 Servidor rodando em http://${HOST}:${PORT}`);
     }
     catch (err) {
-        //app.log.error(err);
-        //process.exit(1);
+        console.error('Erro ao iniciar o servidor:', err);
+        process.exit(1);
     }
 });
 start();

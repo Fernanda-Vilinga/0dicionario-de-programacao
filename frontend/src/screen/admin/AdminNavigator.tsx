@@ -2,11 +2,13 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialIcons } from '@expo/vector-icons';
 import UsersScreen from './UsersScreenAdmin';
-import GerenciarDicionario from './DicionayScreenAdmin'
-import GerenciarQuizzes from './QuizzesScreenAdmin'
-import GerenciarMentoria from './MentorShipScreenAdmin'
-import Configuracoes from './SettingsScreenAdmin'
+import GerenciarDicionario from './DicionayScreenAdmin';
+import GerenciarQuizzes from './QuizzesScreenAdmin';
+import GerenciarMentoria from './MentorShipScreenAdmin';
+import Configuracoes from './SettingsScreenAdmin';
 import AdminDashboardScreen from './AdminHome';
+import SugestoesScreen from './SugestoesScreen';
+
 const Tab = createBottomTabNavigator();
 
 const AdminNavigator = () => {
@@ -32,6 +34,9 @@ const AdminNavigator = () => {
             case 'Mentoria':
               iconName = 'school';
               break;
+            case 'Sugestões':
+              iconName = 'lightbulb';
+              break;
             case 'Configurações':
               iconName = 'settings';
               break;
@@ -51,9 +56,11 @@ const AdminNavigator = () => {
       <Tab.Screen name="Dicionário" component={GerenciarDicionario} />
       <Tab.Screen name="Quizzes" component={GerenciarQuizzes} />
       <Tab.Screen name="Mentoria" component={GerenciarMentoria} />
+      <Tab.Screen name="Sugestões" component={SugestoesScreen} />
       <Tab.Screen name="Configurações" component={Configuracoes} />
     </Tab.Navigator>
   );
 };
 
 export default AdminNavigator;
+
