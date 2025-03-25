@@ -18,43 +18,75 @@ function chatRoutes(app) {
         // Rota para enviar mensagem no chat
         app.post('/chat/enviar', (req, reply) => __awaiter(this, void 0, void 0, function* () {
             var _a;
-            const { sessaoId, remetenteId, mensagem } = req.body;
-            if (!sessaoId || !remetenteId || !mensagem) {
-                return reply.status(400).send({ message: 'Todos os campos são obrigatórios.' });
-            }
             try {
+                const body = req.body;
+                if (!(body === null || body === void 0 ? void 0 : body.sessaoId) || !(body === null || body === void 0 ? void 0 : body.remetenteId) || !(body === null || body === void 0 ? void 0 : body.mensagem)) {
+                    return reply.status(400).send({ message: 'Todos os campos são obrigatórios.' });
+                }
                 // Verifica se a sessão existe e foi aceita
-                const sessaoRef = firebaseConfig_1.default.collection('sessaoMentoria').doc(sessaoId);
+                const sessaoRef = firebaseConfig_1.default.collection('sessaoMentoria').doc(body.sessaoId);
                 const sessao = yield sessaoRef.get();
                 if (!sessao.exists || ((_a = sessao.data()) === null || _a === void 0 ? void 0 : _a.status) !== 'aceita') {
                     return reply.status(403).send({ message: 'Sessão de mentoria não ativa.' });
                 }
                 // Salvar mensagem no Firestore
-                const chatRef = firebaseConfig_1.default.collection('chats').doc(sessaoId);
+                const chatRef = firebaseConfig_1.default.collection('chats').doc(body.sessaoId);
                 yield chatRef.collection('mensagens').add({
-                    remetenteId,
-                    mensagem,
+                    remetenteId: body.remetenteId,
+                    mensagem: body.mensagem,
                     timestamp: new Date(),
                 });
                 return reply.send({ message: 'Mensagem enviada com sucesso.' });
             }
             catch (error) {
-                console.error(error);
+                console.error("Erro ao enviar mensagem:", error);
                 return reply.status(500).send({ message: 'Erro ao enviar mensagem.' });
             }
         }));
         // Rota para listar mensagens da sessão de mentoria
         app.get('/chat/mensagens/:sessaoId', (req, reply) => __awaiter(this, void 0, void 0, function* () {
-            const { sessaoId } = req.params;
             try {
+                const { sessaoId } = req.params;
+                if (!sessaoId) {
+                    return reply.status(400).send({ message: 'Sessão inválida.' });
+                }
                 const mensagensRef = firebaseConfig_1.default.collection('chats').doc(sessaoId).collection('mensagens').orderBy('timestamp', 'asc');
                 const mensagensSnapshot = yield mensagensRef.get();
                 const mensagens = mensagensSnapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
                 return reply.send(mensagens);
             }
             catch (error) {
-                console.error(error);
+                console.error("Erro ao buscar mensagens:", error);
                 return reply.status(500).send({ message: 'Erro ao buscar mensagens.' });
+            }
+        }));
+        // Nova rota para verificar a sessão de mentoria ativa entre um usuário e um mentor
+        app.post('/mentoria/verificar', (req, reply) => __awaiter(this, void 0, void 0, function* () {
+            try {
+                const body = req.body;
+                const { usuarioId, mentorId } = body;
+                if (!usuarioId || !mentorId) {
+                    return reply.status(400).send({ message: 'usuarioId e mentorId são obrigatórios.' });
+                }
+                // Consulta a coleção "sessaoMentoria" para encontrar uma sessão com status "aceita"
+                const snapshot = yield firebaseConfig_1.default
+                    .collection('sessaoMentoria')
+                    .where('usuarioId', '==', usuarioId)
+                    .where('mentorId', '==', mentorId)
+                    .where('status', '==', 'aceita')
+                    .get();
+                if (snapshot.empty) {
+                    return reply
+                        .status(404)
+                        .send({ message: 'Nenhuma sessão de mentoria ativa encontrada.' });
+                }
+                // Supondo que apenas uma sessão ativa exista para essa combinação
+                const sessaoDoc = snapshot.docs[0];
+                return reply.send(Object.assign({ sessaoId: sessaoDoc.id }, sessaoDoc.data()));
+            }
+            catch (error) {
+                console.error("Erro ao verificar mentoria:", error);
+                return reply.status(500).send({ message: 'Erro ao verificar mentoria.' });
             }
         }));
     });

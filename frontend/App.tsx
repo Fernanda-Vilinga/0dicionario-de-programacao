@@ -22,7 +22,10 @@ import SugestoesScreen from "./src/screen/admin/SugestoesScreen";
 import DetalheNotaScreen from "./src/screen/User/DetalheNotaScreen";
 import TabsNavigator from "./src/screen/User/HomeUser"; // Corrigido nome
 import { ThemeProvider } from "@react-navigation/native";
+import ProfileMentorScreen from "./src/screen/mentor/ProfileMentor";
 import ManageQuestionsScreen from "./src/screen/admin/ManageQuestionsScreen"
+import MentoresScreen from "./src/screen/User/MentoresScreen"
+import ChatsScreen from "./src/screen/mentor/ChatsScreen";
 // Tipagem das rotas
 export type RootStackParamList = {
   Loading: undefined;
@@ -44,6 +47,7 @@ export type RootStackParamList = {
   SugestoesScreen: undefined;
   DetalheNotaScreen: undefined;
   ManageQuestionsScreen: { quizId: string }; // Ajuste aqui
+  ProfileMentor: undefined;
 };
 const Stack = createStackNavigator();
 
@@ -69,7 +73,9 @@ const AppNavigator = () => {
       <Stack.Screen name="MentorNavigator" component={MentorNavigator} />
       <Stack.Screen name="SugestoesScreen" component={SugestoesScreen} />
       <Stack.Screen name="DetalheNotaScreen" component={DetalheNotaScreen} />
-    
+      <Stack.Screen name="Mentores" component={MentoresScreen} />
+      <Stack.Screen name="ProfileMentor" component={ProfileMentorScreen} />
+      <Stack.Screen name="Chat" component={ChatsScreen} />
 
     </Stack.Navigator>
     </ThemeProvider>

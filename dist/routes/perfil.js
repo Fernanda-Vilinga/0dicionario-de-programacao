@@ -16,7 +16,7 @@ exports.default = profileRoutes;
 const firebaseConfig_1 = __importDefault(require("../firebaseConfig"));
 function profileRoutes(app) {
     return __awaiter(this, void 0, void 0, function* () {
-        // Rota para obter o perfil de um usuário específico
+        // Rota para obter o perfil do usuário
         app.get('/perfil/:id', (req, reply) => __awaiter(this, void 0, void 0, function* () {
             const { id } = req.params;
             try {
@@ -42,38 +42,32 @@ function profileRoutes(app) {
                 }
                 const userData = userDoc.data();
                 const isMentor = (userData === null || userData === void 0 ? void 0 : userData.role) === 'mentor'; // Verifica se é mentor
-                // Atualiza os campos comuns a todos os usuários
+                // Constrói o objeto de atualização
                 const updateData = {};
-                if (nome)
+                if (nome !== undefined)
                     updateData.nome = nome;
-                if (bio)
+                if (bio !== undefined)
                     updateData.bio = bio;
-                if (profileImage)
+                if (profileImage !== undefined)
                     updateData.profileImage = profileImage;
-                // Adiciona "sobre" apenas se for mentor e se o campo foi enviado
-                if (isMentor && sobre) {
-                    updateData.sobre = sobre;
+                // Apenas mentores podem atualizar o campo "sobre"
+                if (isMentor) {
+                    if (sobre !== undefined) {
+                        updateData.sobre = sobre;
+                    }
                 }
-                // Realiza a atualização
+                else {
+                    // Se não for mentor, impede a atualização do campo "sobre"
+                    if ("sobre" in req.body) {
+                        return reply.status(400).send({ message: 'Usuários normais não podem definir o campo "sobre".' });
+                    }
+                }
+                // Atualiza o documento no Firestore
                 yield userRef.update(updateData);
                 return reply.send({ message: 'Perfil atualizado com sucesso' });
             }
             catch (error) {
                 return reply.status(500).send({ message: 'Erro ao atualizar perfil', error });
-            }
-        }));
-        // 🔥 Nova rota para buscar todos os mentores 🔥
-        app.get('/mentores', (req, reply) => __awaiter(this, void 0, void 0, function* () {
-            try {
-                const snapshot = yield firebaseConfig_1.default.collection('usuarios').where('tipo_de_usuario', '==', 'MENTOR').get();
-                if (snapshot.empty) {
-                    return reply.status(404).send({ message: 'Nenhum mentor encontrado' });
-                }
-                const mentores = snapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
-                return reply.send(mentores);
-            }
-            catch (error) {
-                return reply.status(500).send({ message: 'Erro ao buscar mentores', error });
             }
         }));
     });

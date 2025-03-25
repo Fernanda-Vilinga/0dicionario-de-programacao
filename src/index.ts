@@ -20,7 +20,7 @@ import favoritesRoutes from './routes/favorites';
 import suggestionsRoutes from './routes/suggestsRoutes';
 import historyRoutes from './routes/history';
 import aboutRoutes from './routes/about';
-
+import mentorRoutes from './routes/users';
 const app = Fastify({ logger: true });
 
 // 🔹 Configuração do CORS (deve vir antes das rotas!)
@@ -64,6 +64,7 @@ app.register(favoritesRoutes);
 app.register(suggestionsRoutes);
 app.register(historyRoutes);
 app.register(aboutRoutes);
+app.register(mentorRoutes);
 
 // 🔹 Inicia o servidor
 const start = async () => {

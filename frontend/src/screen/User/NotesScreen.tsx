@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { 
-  View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet 
+  View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, Share 
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import axios from "axios";
@@ -23,17 +23,13 @@ const BlocoDeNotasScreen = ({ navigation }: any) => {
   const [loading, setLoading] = useState(false);
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
 
-  // Recupera o usuarioId do AsyncStorage e carrega as notas
   useEffect(() => {
     const obterUsuarioId = async () => {
       try {
         const idSalvo = await AsyncStorage.getItem("usuarioId");
-        console.log("ID do usuário recuperado do AsyncStorage:", idSalvo);
         if (idSalvo) {
           setUsuarioId(idSalvo);
           carregarNotas(idSalvo);
-        } else {
-          console.warn("Usuário não encontrado no AsyncStorage.");
         }
       } catch (error) {
         console.error("Erro ao obter usuário ID:", error);
@@ -46,7 +42,6 @@ const BlocoDeNotasScreen = ({ navigation }: any) => {
     setLoading(true);
     try {
       const response = await axios.get(`${API_BASE_URL}/notas?usuarioId=${id}`);
-      console.log("Notas carregadas:", response.data);
       setNotas(response.data);
     } catch (error) {
       console.error("Erro ao carregar notas:", error);
@@ -62,7 +57,6 @@ const BlocoDeNotasScreen = ({ navigation }: any) => {
 
     try {
       if (editandoNota) {
-        // Atualiza a nota existente
         await axios.put(`${API_BASE_URL}/notas/${editandoNota.id}`, {
           conteudo: novaNota,
           tags: tagsArray,
@@ -72,7 +66,6 @@ const BlocoDeNotasScreen = ({ navigation }: any) => {
         ));
         setEditandoNota(null);
       } else {
-        // Cria uma nova nota
         const response = await axios.post(`${API_BASE_URL}/notas`, {
           usuarioId,
           conteudo: novaNota,
@@ -120,12 +113,22 @@ const BlocoDeNotasScreen = ({ navigation }: any) => {
     }
   };
 
+  const compartilharNota = async (nota: Nota) => {
+    try {
+      const mensagem = `📌 *${nota.tags?.join(", ") || "Nota"}*:\n${nota.conteudo}`;
+      await Share.share({
+        message: mensagem,
+      });
+    } catch (error) {
+      console.error("Erro ao compartilhar nota:", error);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <HeaderComum screenName="Bloco de Notas" />
       <Text style={styles.titulo}>Minhas Anotações</Text>
 
-      {/* Campo para inserir o título (tags) da nota */}
       <TextInput
         style={styles.input}
         placeholder="Título da anotação (ex: React, Banco de Dados)"
@@ -133,7 +136,6 @@ const BlocoDeNotasScreen = ({ navigation }: any) => {
         onChangeText={setTags}
       />
 
-      {/* Campo para inserir a descrição (conteúdo) da nota */}
       <TextInput
         style={[styles.input, styles.inputDescricao]}
         placeholder="Descrição da anotação..."
@@ -182,6 +184,9 @@ const BlocoDeNotasScreen = ({ navigation }: any) => {
                 <TouchableOpacity onPress={() => removerNota(nota.id)}>
                   <MaterialIcons name="delete" size={24} color="black" />
                 </TouchableOpacity>
+                <TouchableOpacity onPress={() => compartilharNota(nota)}>
+                  <MaterialIcons name="share" size={24} color="#4CAF50" />
+                </TouchableOpacity>
               </View>
             </TouchableOpacity>
           ))}
@@ -199,7 +204,7 @@ const styles = StyleSheet.create({
   botaoAdicionar: { backgroundColor: "#2979FF", padding: 12, borderRadius: 8, alignItems: "center" },
   botaoCancelar: { backgroundColor: "red", padding: 12, borderRadius: 8, alignItems: "center", marginBottom: 10 },
   textoBotao: { color: "#fff", fontWeight: "bold", fontSize: 18 },
-  listaNotas: { marginTop: 10, maxHeight: 400 },
+  listaNotas: { marginTop: 10 },
   notaContainer: { flexDirection: "row", alignItems: "center", backgroundColor: "#E3F2FD", padding: 10, borderRadius: 8, marginTop: 10 },
   notaFavorita: { backgroundColor: "#FFEBEE" },
   notaTitulo: { fontSize: 18, fontWeight: "bold", color: "#004AAD" },

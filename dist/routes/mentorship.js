@@ -18,38 +18,40 @@ function mentoriaRoutes(app) {
     return __awaiter(this, void 0, void 0, function* () {
         // Rota para agendar mentoria
         app.post('/mentoria/agendar', (req, reply) => __awaiter(this, void 0, void 0, function* () {
-            const { usuarioId, mentorId, data, horario } = req.body;
-            if (!usuarioId || !mentorId || !data || !horario) {
-                return reply.status(400).send({ message: 'Preencha todos os campos obrigatórios.' });
+            var _a;
+            // Utiliza o ID do usuário autenticado ou, se ausente, o enviado no corpo da requisição
+            const usuarioId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || req.body.usuarioId;
+            const { mentorId, data, horario, planoMentoria, categoria } = req.body;
+            if (!usuarioId || !mentorId || !data || !horario || !planoMentoria || !categoria) {
+                return reply
+                    .status(400)
+                    .send({ message: 'Preencha todos os campos obrigatórios.' });
             }
             try {
                 const dataHoraMentoria = new Date(`${data}T${horario}:00Z`);
                 const agora = new Date();
                 if (dataHoraMentoria <= agora) {
-                    return reply.status(400).send({ message: 'A mentoria deve ser agendada para uma data futura.' });
-                }
-                const mentoriasExistentes = yield firebaseConfig_1.default
-                    .collection('sessaoMentoria')
-                    .where('mentorId', '==', mentorId)
-                    .where('data', '==', data)
-                    .where('horario', '==', horario)
-                    .get();
-                if (!mentoriasExistentes.empty) {
-                    return reply.status(400).send({ message: 'O mentor já tem uma sessão agendada nesse horário.' });
+                    return reply
+                        .status(400)
+                        .send({ message: 'A mentoria deve ser agendada para uma data futura.' });
                 }
                 const newSession = yield firebaseConfig_1.default.collection('sessaoMentoria').add({
                     usuarioId,
                     mentorId,
                     data,
                     horario,
-                    status: 'agendado', // Status inicial
+                    planoMentoria,
+                    categoria,
+                    status: 'pendente', // Status inicial
                     dataCriacao: new Date(),
                 });
-                return reply.status(201).send({ message: 'Mentoria agendada com sucesso.', id: newSession.id });
+                return reply
+                    .status(201)
+                    .send({ message: 'Mentoria solicitada com sucesso.', id: newSession.id });
             }
             catch (error) {
                 console.error(error);
-                return reply.status(500).send({ message: 'Erro ao agendar mentoria.' });
+                return reply.status(500).send({ message: 'Erro ao solicitar mentoria.' });
             }
         }));
         // Rota para aceitar uma mentoria (mentor)
@@ -67,6 +69,28 @@ function mentoriaRoutes(app) {
             catch (error) {
                 console.error(error);
                 return reply.status(500).send({ message: 'Erro ao aceitar mentoria.' });
+            }
+        }));
+        //rota para buscar mentorias aceites ou pendentes
+        app.get('/mentoria/sessoes', (req, reply) => __awaiter(this, void 0, void 0, function* () {
+            const { mentorId, status } = req.query;
+            if (!mentorId || !status) {
+                return reply
+                    .status(400)
+                    .send({ message: 'Informe mentorId e status para filtrar as sessões.' });
+            }
+            try {
+                const snapshot = yield firebaseConfig_1.default
+                    .collection('sessaoMentoria')
+                    .where('mentorId', '==', mentorId)
+                    .where('status', '==', status)
+                    .get();
+                const sessions = snapshot.docs.map(doc => (Object.assign({ sessaoId: doc.id }, doc.data())));
+                return reply.send(sessions);
+            }
+            catch (error) {
+                console.error(error);
+                return reply.status(500).send({ message: 'Erro ao buscar sessões.' });
             }
         }));
     });

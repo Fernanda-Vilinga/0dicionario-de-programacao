@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, Modal, Alert 
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import HeaderComum from '../HeaderComum';
 import API_BASE_URL from 'src/config';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -21,7 +22,7 @@ const DictionaryScreen: React.FC = () => {
   const [termInput, setTermInput] = useState<string>('');
   const [definitionInput, setDefinitionInput] = useState<string>('');
   const [exampleInput, setExampleInput] = useState<string>('');
-  const [languageInput, setLanguageInput] = useState<string>('');
+  const [languageInput, setLanguageInput] = useState<string>('JavaScript');
   const [editingTerm, setEditingTerm] = useState<Term | null>(null);
 
   useEffect(() => {
@@ -75,7 +76,7 @@ const DictionaryScreen: React.FC = () => {
       setTermInput('');
       setDefinitionInput('');
       setExampleInput('');
-      setLanguageInput('');
+      setLanguageInput('JavaScript');
       fetchTerms();
     } catch (error) {
       console.error('Erro ao salvar termo:', error);
@@ -88,7 +89,7 @@ const DictionaryScreen: React.FC = () => {
     setTermInput(term.termo);
     setDefinitionInput(term.definicao);
     setExampleInput(term.exemplos && term.exemplos.length > 0 ? term.exemplos[0] : '');
-    setLanguageInput(term.linguagem || '');
+    setLanguageInput(term.linguagem || 'JavaScript');
     setModalVisible(true);
   };
 
@@ -175,12 +176,20 @@ const DictionaryScreen: React.FC = () => {
               value={exampleInput}
               onChangeText={setExampleInput}
             />
-            <TextInput
+            {/* Campo de linguagem substituído por Picker com 7 opções modernas */}
+            <Picker
+              selectedValue={languageInput}
               style={styles.input}
-              placeholder="Digite a linguagem"
-              value={languageInput}
-              onChangeText={setLanguageInput}
-            />
+              onValueChange={(itemValue) => setLanguageInput(itemValue)}
+            >
+              <Picker.Item label="JavaScript" value="JavaScript" />
+              <Picker.Item label="TypeScript" value="TypeScript" />
+              <Picker.Item label="Python" value="Python" />
+              <Picker.Item label="Java" value="Java" />
+              <Picker.Item label="C#" value="C#" />
+              <Picker.Item label="Swift" value="Swift" />
+              <Picker.Item label="Kotlin" value="Kotlin" />
+            </Picker>
             <TouchableOpacity style={styles.button} onPress={handleSaveTerm}>
               <Text style={styles.buttonText}>
                 {editingTerm ? 'Salvar Alterações' : 'Adicionar Termo'}
@@ -223,10 +232,7 @@ const styles = StyleSheet.create({
   actionButton: { marginHorizontal: 5 },
   modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
   modalContent: { width: '80%', backgroundColor: '#fff', padding: 20, borderRadius: 10, alignItems: 'center' },
-  closeButton: {
-    alignSelf: 'flex-end',
-    marginBottom: 10,
-  },
+  closeButton: { alignSelf: 'flex-end', marginBottom: 10 },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 5, padding: 10, width: '100%', marginVertical: 5 },
   button: { backgroundColor: '#2979FF', padding: 15, borderRadius: 5, width: '100%' },
   cancelButton: { backgroundColor: '#B0BEC5', padding: 15, borderRadius: 5, width: '100%', marginTop: 10 },

@@ -128,20 +128,32 @@ export default async function quizRoutes(app: FastifyInstance) {
     }
   });
 
+
+
   // Deletar uma pergunta de quiz
   app.delete('/quiz/perguntas/:id', async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-    const { id } = req.params;
     try {
+      const { id } = req.params;
+  
+      if (!id) {
+        return reply.status(400).send({ message: "ID da pergunta é obrigatório." });
+      }
+  
       const questionRef = db.collection('quizPerguntas').doc(id);
       const doc = await questionRef.get();
+  
       if (!doc.exists) {
         return reply.status(404).send({ message: 'Pergunta não encontrada.' });
       }
+  
       await questionRef.delete();
       return reply.send({ message: 'Pergunta deletada com sucesso.' });
     } catch (error) {
       console.error("Erro ao deletar pergunta:", error);
-      return reply.status(500).send({ message: 'Erro ao deletar pergunta.' });
+      return reply.status(500).send({ message: 'Erro interno ao deletar pergunta.' });
     }
   });
+  
+  
+  
 }

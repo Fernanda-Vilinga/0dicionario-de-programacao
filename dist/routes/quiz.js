@@ -110,8 +110,11 @@ function quizRoutes(app) {
         }));
         // Deletar uma pergunta de quiz
         app.delete('/quiz/perguntas/:id', (req, reply) => __awaiter(this, void 0, void 0, function* () {
-            const { id } = req.params;
             try {
+                const { id } = req.params;
+                if (!id) {
+                    return reply.status(400).send({ message: "ID da pergunta é obrigatório." });
+                }
                 const questionRef = firebaseConfig_1.default.collection('quizPerguntas').doc(id);
                 const doc = yield questionRef.get();
                 if (!doc.exists) {
@@ -122,7 +125,7 @@ function quizRoutes(app) {
             }
             catch (error) {
                 console.error("Erro ao deletar pergunta:", error);
-                return reply.status(500).send({ message: 'Erro ao deletar pergunta.' });
+                return reply.status(500).send({ message: 'Erro interno ao deletar pergunta.' });
             }
         }));
     });

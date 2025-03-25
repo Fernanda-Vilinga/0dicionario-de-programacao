@@ -4,6 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import MentorDashboard from './MentorDashboardScreen';
 import ChatsScreen from './ChatsScreen';
 import SettingsScreenMentor from './SettingScreenMentor';
+import ProfileMentorScreen from './ProfileMentor';
 const Tab = createBottomTabNavigator();
 
 const MentorNavigator = () => {
@@ -23,6 +24,7 @@ const MentorNavigator = () => {
             case 'Configurações':
               iconName = 'settings';
               break;
+             
             
             default:
               iconName = 'schedule';
@@ -37,7 +39,7 @@ const MentorNavigator = () => {
     >
       <Tab.Screen name="Agenda" component={MentorDashboard} />
       <Tab.Screen name="Mensagens" component={ChatsScreen} />
-      <Tab.Screen name="Configurações" component={SettingsScreenMentor} />
+   
   
     </Tab.Navigator>
   );

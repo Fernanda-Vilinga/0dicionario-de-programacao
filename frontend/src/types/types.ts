@@ -50,6 +50,12 @@ export type RootStackParamList = {
   Configuracoes: undefined;
   AdminNavigator:undefined
   MentorNavigator:undefined;
-  Dashboard:undefined
+  Dashboard:undefined;
+  LoginRegister: undefined;
+  LoginScreen: undefined;
+  HomeScreen: undefined;
+  ProfileMentor: undefined;
+  Mentores: undefined;
+  Chat: undefined;
 };
 

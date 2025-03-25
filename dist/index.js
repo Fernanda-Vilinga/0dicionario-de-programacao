@@ -33,6 +33,7 @@ const favorites_1 = __importDefault(require("./routes/favorites"));
 const suggestsRoutes_1 = __importDefault(require("./routes/suggestsRoutes"));
 const history_1 = __importDefault(require("./routes/history"));
 const about_1 = __importDefault(require("./routes/about"));
+const users_1 = __importDefault(require("./routes/users"));
 const app = (0, fastify_1.default)({ logger: true });
 // 🔹 Configuração do CORS (deve vir antes das rotas!)
 app.register(cors_1.default, {
@@ -72,6 +73,7 @@ app.register(favorites_1.default);
 app.register(suggestsRoutes_1.default);
 app.register(history_1.default);
 app.register(about_1.default);
+app.register(users_1.default);
 // 🔹 Inicia o servidor
 const start = () => __awaiter(void 0, void 0, void 0, function* () {
     try {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import HeaderHomes from '../HeaderHomes';
+import HeaderAdmin from '../HeaderAdmin';
 
 const reports = [
   { id: '1', title: 'Usuários Ativos', value: '150', icon: 'person', color: '#2979FF' },
@@ -36,7 +36,7 @@ const ReportCard = ({ title, value, icon, color }: any) => (
 const AdminDashboardScreen = () => {
   return (
     <View style={styles.container}>
-      <HeaderHomes screenName="Relatórios de Atividades" />
+      <HeaderAdmin screenName="Relatórios de Atividades" />
 
       <FlatList
         data={reports}

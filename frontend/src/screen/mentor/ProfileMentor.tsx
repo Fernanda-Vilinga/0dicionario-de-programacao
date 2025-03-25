@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -17,74 +17,52 @@ import { Picker } from "@react-native-picker/picker";
 import API_BASE_URL from "src/config";
 import HeaderComum from "../HeaderComum";
 
-interface UserProfile {
-  nome: string;
-  bio: string;
-  profileImage: string;
-}
+const stackTechnologies = {
+  "Front-end Developer": "JavaScript, React, TypeScript, Chakra UI, Figma",
+  "Back-end Developer": "Node.js, Express, MongoDB, PostgreSQL, Firebase",
+  "Full-stack Developer": "React, Node.js, TypeScript, Firebase, GitHub",
+  "Mobile Developer": "React Native, Expo, Firebase, TypeScript",
+  "DevOps Engineer": "Docker, Kubernetes, AWS, Terraform",
+  "Data Scientist": "Python, Pandas, TensorFlow, SQL",
+  "Machine Learning Engineer": "Python, TensorFlow, PyTorch, Scikit-learn",
+  "Cybersecurity Specialist": "Linux, Kali, Metasploit, Firewalls",
+  "Game Developer": "Unity, C#, Unreal Engine, Godot",
+  "Cloud Engineer": "AWS, Google Cloud, Azure, Kubernetes",
+};
 
-const ProfileScreen = () => {
-  const [userData, setUserData] = useState<UserProfile>({
+const ProfileMentorScreen = () => {
+  const [userData, setUserData] = useState({
     nome: "",
-    bio: "",
+    stack: "",
     profileImage: "",
+    sobre: "",
   });
 
-  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [isEditingName, setIsEditingName] = useState(false);
-  const nameInputRef = React.useRef<TextInput | null>(null);
-  const bioOptions = [
-    "Estudante de programação",
-    "Desenvolvedor iniciante",
-    "Desenvolvedora iniciante",
-    "Amante de tecnologia",
-    "Aprendendo React Native",
-    "Futuro engenheiro de software",
-    "Futura engenheira de software",
-    "Entusiasta de código aberto",
-    "Construindo meu primeiro app",
-    "Explorador do mundo digital",
-    "Exploradora do mundo digital",
-    "Iniciando na programação",
-    "Curioso sobre desenvolvimento",
-    "Curiosa sobre desenvolvimento",
-    "Apaixonado por lógica de programação",
-    "Apaixonado por lógica de programação",
-    "Criando projetos incríveis",
-    "Buscando minha primeira vaga tech",
-    "Estudando novas linguagens",
-    "Aspirante a full-stack developer",
-  ];
+  const nameInputRef = useRef(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUserId = async () => {
       try {
         const storedUserId = await AsyncStorage.getItem("usuarioId");
-        if (storedUserId) {
-          setUserId(storedUserId);
-        } else {
-          throw new Error("ID do usuário não encontrado.");
-        }
+        if (storedUserId) setUserId(storedUserId);
+        else throw new Error("ID do usuário não encontrado.");
       } catch (err) {
         Alert.alert("Erro", "Falha ao obter ID do usuário.");
       }
     };
-
     fetchUserId();
   }, []);
 
   useEffect(() => {
     if (!userId) return;
-
     const fetchUserProfile = async () => {
       try {
         setLoading(true);
         const response = await fetch(`${API_BASE_URL}/perfil/${userId}`);
-
-        if (!response.ok) throw new Error(`Erro ${response.status}: ${response.statusText}`);
-
+        if (!response.ok) throw new Error("Erro ao carregar perfil.");
         const data = await response.json();
         setUserData(data);
       } catch (err) {
@@ -93,7 +71,6 @@ const ProfileScreen = () => {
         setLoading(false);
       }
     };
-
     fetchUserProfile();
   }, [userId]);
 
@@ -103,36 +80,36 @@ const ProfileScreen = () => {
       Alert.alert("Permissão necessária", "Você precisa permitir o acesso às fotos.");
       return;
     }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 1,
     });
-
-    if (result.canceled || !result.assets.length) return;
-
-    const imageUri = result.assets[0].uri;
-    setUserData((prev) => ({ ...prev, profileImage: imageUri }));
+    if (!result.canceled && result.assets.length) {
+      setUserData((prev) => ({ ...prev, profileImage: result.assets[0].uri }));
+    }
   };
+  const generateSobreText = () => {
+    const tecnologias = stackTechnologies[userData.stack as keyof typeof stackTechnologies] || "Tecnologias não especificadas";
+    return `Formado(a) como ${userData.stack}, utilizando tecnologias como ${tecnologias}.`;
+  };
+  
 
   const saveProfile = async () => {
-    if (!userId || !userData.nome || !userData.bio) {
+    if (!userId || !userData.nome || !userData.stack) {
       Alert.alert("Erro", "Preencha todos os campos antes de salvar.");
       return;
     }
-
     try {
       setSaving(true);
+      const updatedUserData = { ...userData, sobre: generateSobreText() };
       const response = await fetch(`${API_BASE_URL}/perfil/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(userData),
+        body: JSON.stringify(updatedUserData),
       });
-
       if (!response.ok) throw new Error("Erro ao salvar perfil.");
-
       Alert.alert("Sucesso", "Perfil atualizado com sucesso!");
     } catch (err) {
       Alert.alert("Erro", "Falha ao atualizar perfil.");
@@ -154,49 +131,22 @@ const ProfileScreen = () => {
       <HeaderComum screenName="Perfil" />
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <TouchableOpacity onPress={pickImage} style={styles.imageContainer}>
-          <Image
-            source={{
-              uri: userData.profileImage || "https://cdn-icons-png.flaticon.com/512/3177/3177440.png",
-            }}
-            style={styles.profileImage}
-          />
+          <Image source={{ uri: userData.profileImage || "https://cdn-icons-png.flaticon.com/512/3177/3177440.png" }} style={styles.profileImage} />
           <Ionicons name="camera" size={24} color="white" style={styles.cameraIcon} />
         </TouchableOpacity>
-
-       
-
-
         <View style={styles.fieldContainer}>
-  <Ionicons name="person-outline" size={20} color="#004AAD" />
-  <TextInput
-    ref={nameInputRef}
-    style={styles.input}
-    placeholder="Nome"
-    value={userData.nome}
-
-    onChangeText={(text) => setUserData((prev) => ({ ...prev, nome: text }))}
-
-  />
-  <TouchableOpacity onPress={() => nameInputRef.current?.focus()}>
-    <MaterialIcons name="edit" size={20} color="#004AAD" style={styles.iconRight} />
-  </TouchableOpacity>
-</View>
-
-
+          <Ionicons name="person-outline" size={20} color="#004AAD" />
+          <TextInput ref={nameInputRef} style={styles.input} placeholder="Nome" value={userData.nome} onChangeText={(text) => setUserData((prev) => ({ ...prev, nome: text }))} />
+        </View>
         <View style={styles.fieldContainer}>
-          <MaterialIcons name="info-outline" size={20} color="#004AAD" />
-          <Picker
-            selectedValue={userData.bio}
-            onValueChange={(itemValue) => setUserData((prev) => ({ ...prev, bio: itemValue }))}
-            style={styles.picker}
-          >
-            {bioOptions.map((bio, index) => (
-              <Picker.Item key={index} label={bio} value={bio} />
+          <MaterialIcons name="computer" size={20} color="#004AAD" />
+          <Picker selectedValue={userData.stack} onValueChange={(itemValue) => setUserData((prev) => ({ ...prev, stack: itemValue }))} style={styles.picker}>
+            {Object.keys(stackTechnologies).map((stack, index) => (
+              <Picker.Item key={index} label={stack} value={stack} />
             ))}
           </Picker>
-          <MaterialIcons name="edit" size={20} color="#004AAD" style={styles.iconRight} />
         </View>
-
+        <Text style={styles.sobreText}>{generateSobreText()}</Text>
         <TouchableOpacity style={styles.saveButton} onPress={saveProfile} disabled={saving}>
           {saving ? <ActivityIndicator color="white" /> : <Text style={styles.saveButtonText}>Salvar</Text>}
         </TouchableOpacity>
@@ -204,7 +154,6 @@ const ProfileScreen = () => {
     </View>
   );
 };
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f5f5" },
   scrollContainer: { flexGrow: 1, padding: 16, alignItems: "center" },
@@ -217,7 +166,15 @@ const styles = StyleSheet.create({
   saveButtonText: { color: "white", fontSize: 16, fontWeight: "bold" },
   picker: { flex: 1, marginLeft: 10 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  iconRight: { marginLeft: 8 },
+  iconRight: { marginLeft: 8 },sobreText: {
+    fontSize: 16,
+    color: "#333",
+    textAlign: "center",
+    marginVertical: 10,
+    paddingHorizontal: 20,
+  },
+
 });
 
-export default ProfileScreen;
+
+export default ProfileMentorScreen;
