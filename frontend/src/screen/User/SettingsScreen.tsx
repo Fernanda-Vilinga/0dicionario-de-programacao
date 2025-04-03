@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useContext } from 'react';
 import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert } from 'react-native';
 import HeaderComum from '../HeaderComum';
+import { ThemeContext } from 'src/context/ThemeContext';
 
 const SettingsScreen = () => {
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const { isDarkMode, toggleTheme, theme } = useContext(ThemeContext);
+  const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
 
-  const toggleDarkMode = () => setIsDarkMode((prev) => !prev);
   const toggleNotifications = () => setNotificationsEnabled((prev) => !prev);
 
   const handleDeleteAccount = () => {
@@ -21,32 +21,27 @@ const SettingsScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Cabeçalho */}
+    <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
       <HeaderComum screenName="Definições" />
+      <Text style={[styles.title, { color: theme.textColor }]}>Configurações Gerais</Text>
 
-      <Text style={styles.title}>Configurações Gerais</Text>
-
-      {/* Modo Escuro */}
       <View style={styles.settingRow}>
-        <Text style={styles.settingText}>Modo Escuro</Text>
-        <Switch value={isDarkMode} onValueChange={toggleDarkMode} />
+        <Text style={[styles.settingText, { color: theme.textColor }]}>Modo Escuro</Text>
+        <Switch value={isDarkMode} onValueChange={toggleTheme} />
       </View>
 
-      {/* Notificações */}
       <View style={styles.settingRow}>
-        <Text style={styles.settingText}>Notificações</Text>
+        <Text style={[styles.settingText, { color: theme.textColor }]}>Notificações</Text>
         <Switch value={notificationsEnabled} onValueChange={toggleNotifications} />
       </View>
 
-      {/* Botões de Ações */}
-      <TouchableOpacity style={styles.button}>
-        <Text style={styles.buttonText}>Solicitar promoção para mentor</Text>
-      </TouchableOpacity>
 
-      <TouchableOpacity style={styles.button}>
-        <Text style={styles.buttonText}>Alterar Senha</Text>
-      </TouchableOpacity>
+      <TouchableOpacity style={[styles.button, { backgroundColor: '#2979FF' }]}>
+  <Text style={[styles.buttonText, { color: theme.buttonText }]}>
+    Alterar Senha
+  </Text>
+</TouchableOpacity>
+
 
       <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
         <Text style={styles.deleteButtonText}>Excluir Conta</Text>
@@ -56,14 +51,14 @@ const SettingsScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, padding: 20 },
   title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
   settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   settingText: { fontSize: 18 },
-  button: { backgroundColor: '#2979FF', padding: 15, borderRadius: 5, marginVertical: 10 },
-  buttonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
+  button: { padding: 15, borderRadius: 5, marginVertical: 10 },
+  buttonText: { fontWeight: 'bold', textAlign: 'center' },
   deleteButton: { backgroundColor: 'red', padding: 15, borderRadius: 5, marginTop: 20 },
-  deleteButtonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
+  deleteButtonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' }
 });
 
 export default SettingsScreen;

@@ -7,10 +7,11 @@ import {
   Image, 
   StatusBar, 
   Platform,
-  Alert
+  Alert,
+  SafeAreaView
 } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useTheme } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StackNavigationProp } from "@react-navigation/stack";
 import API_BASE_URL from "src/config";
@@ -27,13 +28,14 @@ interface HeaderProps {
 
 const HeaderHome: React.FC<HeaderProps> = ({ screenName, onOpenSettings }) => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+  const { colors } = useTheme();
+
   const [user, setUser] = useState<{ nome: string; profileImage: string | null }>({
     nome: "Carregando...",
     profileImage: null,
   });
   const [notificationCount, setNotificationCount] = useState(0);
 
-  // Registro para notificações push
   useEffect(() => {
     const registerForPushNotificationsAsync = async () => {
       try {
@@ -49,7 +51,6 @@ const HeaderHome: React.FC<HeaderProps> = ({ screenName, onOpenSettings }) => {
         }
         const tokenData = await Notifications.getExpoPushTokenAsync();
         console.log('Token de notificação:', tokenData.data);
-        // Envie o token para o backend se necessário.
       } catch (error) {
         console.error('Erro no registro de notificações:', error);
       }
@@ -58,36 +59,27 @@ const HeaderHome: React.FC<HeaderProps> = ({ screenName, onOpenSettings }) => {
     registerForPushNotificationsAsync();
   }, []);
 
-  // Listener para notificações recebidas (in-app)
   useEffect(() => {
     const subscription = Notifications.addNotificationReceivedListener(notification => {
       console.log('Notificação recebida:', notification);
-      // Incrementa o contador de notificações para exibir um badge
       setNotificationCount(prev => prev + 1);
     });
     return () => subscription.remove();
   }, []);
 
-  // Buscar o usuário logado
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
         const userData = await AsyncStorage.getItem("usuarioId");
-        if (!userData) {
-          console.log("Nenhum ID de usuário encontrado no AsyncStorage.");
-          return;
-        }
-        console.log("Buscando perfil para ID:", userData);
+        if (!userData) return;
+
         const response = await fetch(`${API_BASE_URL}/perfil/${userData}`);
         const data = await response.json();
         if (response.ok) {
-          console.log("Dados do usuário recebidos:", data);
           setUser({
             nome: data.nome || data.name || "Usuário",
-            profileImage: data.profileImage ? data.profileImage : null,
+            profileImage: data.profileImage || null,
           });
-        } else {
-          console.error("Erro ao carregar perfil:", data.message);
         }
       } catch (error) {
         console.error("Erro ao buscar perfil:", error);
@@ -98,52 +90,54 @@ const HeaderHome: React.FC<HeaderProps> = ({ screenName, onOpenSettings }) => {
   }, []);
 
   return (
-    <View style={styles.container}>
-      {/* Foto e Nome do Usuário */}
-      <View style={styles.userContainer}>
-        {user.profileImage ? (
-          <Image source={{ uri: user.profileImage }} style={styles.userImage} />
-        ) : (
-          <Ionicons name="person-circle" size={40} color="gray" />
-        )}
-        <Text style={styles.userName}>{user.nome}</Text>
-      </View>
-
-      {/* Nome da Tela */}
-      <Text style={styles.screenName} numberOfLines={1} ellipsizeMode="tail">
-        {screenName}
-      </Text>
-
-      {/* Ícones de Menu, Notificações e Biblioteca */}
-      <View style={styles.rightIcons}>
-        <TouchableOpacity style={styles.icon} onPress={onOpenSettings}>
-          <Ionicons name="menu" size={26} color="black" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.icon}>
-          <Ionicons name="notifications-sharp" size={26} color="black" />
-          {notificationCount > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{notificationCount}</Text>
-            </View>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={[styles.container, { backgroundColor: colors.card }]}>
+        <View style={styles.userContainer}>
+          {user.profileImage ? (
+            <Image source={{ uri: user.profileImage }} style={styles.userImage} />
+          ) : (
+            <Ionicons name="person-circle" size={40} color={colors.text} />
           )}
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.icon}>
-          <MaterialIcons name="local-library" size={26} color="#2979FF" />
-        </TouchableOpacity>
+          <Text style={[styles.userName, { color: colors.text }]}>{user.nome}</Text>
+        </View>
+
+        <Text style={[styles.screenName, { color: colors.text }]} numberOfLines={1} ellipsizeMode="tail">
+          {screenName}
+        </Text>
+
+        <View style={styles.rightIcons}>
+          <TouchableOpacity style={styles.icon} onPress={onOpenSettings}>
+            <Ionicons name="menu" size={26} color={colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.icon}>
+            <Ionicons name="notifications-sharp" size={26} color={colors.text} />
+            {notificationCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{notificationCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.icon}>
+            <MaterialIcons name="local-library" size={26} color="#2979FF" />
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    backgroundColor: "transparent",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0, 
+  },
   container: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 15,
     paddingVertical: 10,
-    backgroundColor: "#FFFFFF",
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 10,
+    minHeight: 60, // Altura mínima do header
   },
   userContainer: {
     flexDirection: "row",
@@ -158,15 +152,13 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 14,
     fontWeight: "bold",
-    color: "#2979FF",
   },
   screenName: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#2979FF",
     flex: 1,
     textAlign: "center",
-    maxWidth: "50%",
+    maxWidth: "45%", // Ajustado para não ocupar muito espaço
   },
   rightIcons: {
     flexDirection: "row",
@@ -177,18 +169,18 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   badge: {
-    position: 'absolute',
+    position: "absolute",
     right: 0,
     top: -2,
-    backgroundColor: 'red',
+    backgroundColor: "red",
     borderRadius: 8,
     paddingHorizontal: 4,
     paddingVertical: 1,
   },
   badgeText: {
-    color: 'white',
+    color: "white",
     fontSize: 10,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
 });
 

@@ -89,6 +89,35 @@ function chatRoutes(app) {
                 return reply.status(500).send({ message: 'Erro ao verificar mentoria.' });
             }
         }));
+        // Rota para enviar áudio como mensagem no chat
+        app.post('/chat/enviar-audio', (req, reply) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            try {
+                const body = req.body;
+                if (!(body === null || body === void 0 ? void 0 : body.sessaoId) || !(body === null || body === void 0 ? void 0 : body.remetenteId) || !(body === null || body === void 0 ? void 0 : body.mensagem)) {
+                    return reply.status(400).send({ message: 'Todos os campos são obrigatórios.' });
+                }
+                // Verifica se a sessão existe e foi aceita
+                const sessaoRef = firebaseConfig_1.default.collection('sessaoMentoria').doc(body.sessaoId);
+                const sessao = yield sessaoRef.get();
+                if (!sessao.exists || ((_a = sessao.data()) === null || _a === void 0 ? void 0 : _a.status) !== 'aceita') {
+                    return reply.status(403).send({ message: 'Sessão de mentoria não ativa.' });
+                }
+                // Salva a mensagem de áudio no Firestore, marcando o tipo como "audio"
+                const chatRef = firebaseConfig_1.default.collection('chats').doc(body.sessaoId);
+                yield chatRef.collection('mensagens').add({
+                    remetenteId: body.remetenteId,
+                    mensagem: body.mensagem, // Aqui você envia o URI (ou URL) do áudio
+                    tipo: 'audio',
+                    timestamp: new Date(),
+                });
+                return reply.send({ message: 'Áudio enviado com sucesso.' });
+            }
+            catch (error) {
+                console.error("Erro ao enviar áudio:", error);
+                return reply.status(500).send({ message: 'Erro ao enviar áudio.' });
+            }
+        }));
     });
 }
 exports.default = chatRoutes;

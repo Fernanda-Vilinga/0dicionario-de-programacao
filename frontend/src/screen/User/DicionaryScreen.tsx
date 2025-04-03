@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert, ActivityIndicator, Platform
 } from 'react-native';
@@ -7,7 +7,10 @@ import * as Speech from 'expo-speech';
 import HeaderComum from '../HeaderComum';
 import API_BASE_URL from 'src/config';
 import { Picker } from '@react-native-picker/picker';
+import { ThemeContext } from 'src/context/ThemeContext'; // Importa o contexto de tema
+
 const DicionarioHome = () => {
+  const { theme } = useContext(ThemeContext); // Obtém o tema atual
   const [termo, setTermo] = useState('');
   const [resultados, setResultados] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -21,14 +24,18 @@ const DicionarioHome = () => {
     carregarTodosOsTermos();
   }, []);
 
+  const ordenarTermos = (dados: any[]) => {
+    return dados.sort((a, b) => a.termo.localeCompare(b.termo));
+  };
+
   const carregarTodosOsTermos = async () => {
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/dicionario/todos`);
       if (!response.ok) throw new Error('Erro ao buscar termos.');
-
       const data = await response.json();
-      setResultados(data);
+      const dadosOrdenados = ordenarTermos(data);
+      setResultados(dadosOrdenados);
     } catch (error) {
       console.error('Erro ao carregar termos:', error);
       Alert.alert("Erro", "Não foi possível carregar os termos.");
@@ -40,21 +47,21 @@ const DicionarioHome = () => {
   const pesquisarTermo = async () => {
     setLoading(true);
     try {
-      let url = `${API_BASE_URL}/dicionario/termos?termo=${encodeURIComponent(termo)}`;
-      if (categoria) url += `&categoria=${encodeURIComponent(categoria)}`;
-      if (linguagem) url += `&linguagem=${encodeURIComponent(linguagem)}`;
-      url += `&ordem=${ordemAlfabetica}`;
-
+      let url = `${API_BASE_URL}/dicionario/termos/simples?`;
+      const params = new URLSearchParams();
+      if (termo.trim()) params.append("termo", termo.trim());
+      url += params.toString();
+      console.log("🔍 URL da pesquisa:", url);
       const response = await fetch(url);
       if (!response.ok) {
         const errorMessage = await response.text();
         throw new Error(errorMessage || "Erro ao buscar termo.");
       }
-
       const data = await response.json();
-      setResultados(data);
+      const dadosOrdenados = ordenarTermos(data);
+      setResultados(dadosOrdenados);
     } catch (error) {
-      console.error('Erro ao buscar termo:', error);
+      console.error("Erro ao buscar termo:", error);
       Alert.alert("Erro", error instanceof Error ? error.message : "Erro desconhecido.");
     } finally {
       setLoading(false);
@@ -83,133 +90,175 @@ const DicionarioHome = () => {
     }));
   };
 
+  // Filtra os resultados com base no termo pesquisado
+  const resultadosFiltrados = resultados.filter((item) => {
+    const termoPesquisado = termo.toLowerCase();
+    const nomeTermo = item.termo.toLowerCase();
+    const definicao = item.definicao.toLowerCase();
+    return nomeTermo.includes(termoPesquisado) || definicao.includes(termoPesquisado);
+  });
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
       <HeaderComum screenName="Dicionário" />
-      <Text style={styles.title}>Enriqueça o teu vocabulário</Text>
+      <Text style={[styles.title, { color: theme.textColor }]}>Enriqueça o teu vocabulário</Text>
 
       <View style={styles.searchContainer}>
         <TextInput 
           placeholder="Pesquisar..."
-          style={styles.textInput}
+          placeholderTextColor={theme.placeholderTextColor}
+          style={[
+            styles.textInput, 
+            { 
+              color: theme.textColor, 
+              borderColor: theme.borderColor, 
+              backgroundColor: theme.cardBackground 
+            }
+          ]}
           value={termo}
           onChangeText={setTermo}
           onSubmitEditing={pesquisarTermo}
         />
-        <TouchableOpacity style={styles.searchButton} onPress={pesquisarTermo}>
-          <MaterialIcons name="search" size={24} color="white" />
+        <TouchableOpacity 
+          style={[styles.searchButton, { backgroundColor: "#2979FF" }]} 
+          onPress={pesquisarTermo}
+        >
+          <MaterialIcons name="search" size={24} color={theme.buttonText} />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.filterContainer}>
-        <Picker selectedValue={categoria} onValueChange={setCategoria}>
-          <Picker.Item label="Todas as Categorias" value="" />
-          <Picker.Item label="Front-end" value="frontend" />
-          <Picker.Item label="Back-end" value="backend" />
-        </Picker>
-        <Picker selectedValue={linguagem} onValueChange={setLinguagem}>
-          <Picker.Item label="Todas as Linguagens" value="" />
-          <Picker.Item label="JavaScript" value="javascript" />
-          <Picker.Item label="Python" value="python" />
-        </Picker>
-        <Picker selectedValue={ordemAlfabetica} onValueChange={setOrdemAlfabetica}>
-          <Picker.Item label="A-Z" value="asc" />
-          <Picker.Item label="Z-A" value="desc" />
-        </Picker>
-      </View>
-
-      {loading && <ActivityIndicator size="large" color="#2979FF" style={styles.loading} />}
+      {loading && <ActivityIndicator size="large" color={theme.buttonBackground} style={styles.loading} />}
 
       <FlatList
-        data={resultados}
+        data={resultadosFiltrados}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View style={styles.resultCard}>
+          <View style={[
+            styles.resultCard, 
+            { 
+              backgroundColor: theme.cardBackground, 
+              borderColor: theme.borderColor, 
+              shadowColor: theme.cardShadow 
+            }
+          ]}>
             <View style={styles.headerRow}>
               <View style={styles.termContainer}>
-                <Text style={styles.term}>{item.termo}</Text>
+                <Text style={[styles.term, { color: theme.textColor }]}>{item.termo}</Text>
                 <TouchableOpacity onPress={() => falarTermo(item.termo)}>
-                  <MaterialIcons name="volume-up" size={22} color="#555" style={styles.icon} />
+                  <MaterialIcons 
+                    name="volume-up" 
+                    size={22} 
+                    color={theme.textColor} 
+                    style={styles.icon} 
+                  />
                 </TouchableOpacity>
               </View>
               <TouchableOpacity onPress={() => alternarFavorito(item.id)}>
                 <MaterialIcons 
                   name={favoritos[item.id] ? "favorite" : "favorite-border"} 
                   size={24} 
-                  color={favoritos[item.id] ? "red" : "#888"} 
+                  color={favoritos[item.id] ? "red" : theme.textColor} 
                 />
               </TouchableOpacity>
             </View>
-            <Text style={styles.definition}>{item.definicao}</Text>
-            <Text style={styles.language}>Linguagem: {item.linguagem || 'Geral'}</Text>
+            <Text style={[styles.definition, { color: theme.textColor }]}>{item.definicao}</Text>
+            <Text style={[styles.language, { color: theme.textColor }]}>
+              Linguagem: {item.linguagem || 'Geral'}
+            </Text>
             <TouchableOpacity onPress={() => alternarExemplo(item.id)}>
-              <Text style={styles.verExemplo}>Ver Exemplo</Text>
+              <Text style={[styles.verExemplo, { color: theme.textColor }]}>Ver Exemplo</Text>
             </TouchableOpacity>
             {exibirExemplo[item.id] && (
               <View style={styles.codeContainer}>
-                <Text style={styles.example}>Exemplo:</Text>
-                <Text style={styles.codeBlock}>{item.exemplos?.[0] || 'Nenhum exemplo disponível.'}</Text>
+                <Text style={[styles.example, { color: theme.textColor }]}>Exemplo:</Text>
+                <Text style={[styles.codeBlock, { color: theme.textColor }]}>
+                  {item.exemplos?.[0] || 'Nenhum exemplo disponível'}
+                </Text>
               </View>
             )}
           </View>
         )}
-        ListEmptyComponent={!loading ? <Text style={styles.emptyText}>Nenhum resultado encontrado.</Text> : null}
       />
     </View>
   );
 };
+
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: '#f5f5f5' },
-  title: { fontSize: 22, fontWeight: 'bold', color: 'black', textAlign: 'center', marginBottom: 10 },
-  searchContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  textInput: { flex: 1, backgroundColor: '#E0E3E7', padding: 10, borderRadius: 5 },
-  searchButton: { padding: 10, backgroundColor: '#2979FF', borderRadius: 5, marginLeft: 10 },
-  verExemplo: { color: '#2979FF', marginTop: 5, fontWeight: 'bold' },
-  resultCard: { 
-    backgroundColor: 'white', 
-    padding: 15, 
-    borderRadius: 8, 
-    marginVertical: 5, 
-    elevation: 3,
-    borderLeftWidth: 5,
-    borderLeftColor: '#2979FF'
+  container: {
+    flex: 1,
+    padding: 16,
   },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  termContainer: { flexDirection: 'row', alignItems: 'center' },
-  term: { fontSize: 18, fontWeight: 'bold', color: '#2979FF' },
-  icon: { marginLeft: 5 },
-  definition: { fontSize: 14, color: '#333', marginTop: 5 },
-  language: { fontSize: 12, color: '#777', marginTop: 5 },
-  codeContainer: { marginTop: 10, backgroundColor: '#E0E3E7', padding: 10, borderRadius: 5 },
-  example: { fontSize: 12, fontWeight: 'bold', color: '#555' },
-  loading: { 
-    marginVertical: 20, 
-    alignSelf: 'center' 
-  }, emptyText: { 
-    textAlign: 'center', 
-    marginTop: 20, 
-    fontSize: 16, 
-    color: '#777' 
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 10,
   },
-  filterContainer: {
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  textInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    height: 40,
+  },
+  searchButton: {
+    padding: 10,
+    borderRadius: 8,
+    marginLeft: 10,
+  },
+  resultCard: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
+  },
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#E0E3E7',
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 10,
   },
-  picker: {
-    flex: 1,
-    marginHorizontal: 5,
-    backgroundColor: 'white',
-    borderRadius: 5,
-    paddingHorizontal: 10,
+  termContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-
-  codeBlock: { fontSize: 12, fontFamily: 'monospace', backgroundColor: '#f0f0f0', padding: 5, borderRadius: 5, marginTop: 5 }
+  term: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  definition: {
+    marginTop: 5,
+  },
+  language: {
+    fontSize: 14,
+    marginTop: 5,
+  },
+  verExemplo: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  example: {
+    fontWeight: 'bold',
+  },
+  codeBlock: {
+    fontFamily: 'monospace',
+    padding: 5,
+  },
+  codeContainer: {
+    marginTop: 5,
+    padding: 5,
+    borderRadius: 5,
+  },
+  icon: {
+    marginLeft: 5,
+  },
+  loading: {
+    marginTop: 10,
+  },
 });
-
 
 export default DicionarioHome;

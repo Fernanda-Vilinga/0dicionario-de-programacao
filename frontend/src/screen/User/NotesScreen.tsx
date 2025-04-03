@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { 
   View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, Share 
 } from "react-native";
@@ -7,6 +7,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import API_BASE_URL from "src/config";
 import HeaderComum from "../HeaderComum";
+import { ThemeContext } from 'src/context/ThemeContext';// Ajuste o caminho conforme sua estrutura
 
 interface Nota {
   id: string;
@@ -16,12 +17,14 @@ interface Nota {
 }
 
 const BlocoDeNotasScreen = ({ navigation }: any) => {
+  const { theme } = useContext(ThemeContext);
   const [notas, setNotas] = useState<Nota[]>([]);
   const [novaNota, setNovaNota] = useState("");
   const [tags, setTags] = useState("");
   const [editandoNota, setEditandoNota] = useState<Nota | null>(null);
   const [loading, setLoading] = useState(false);
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     const obterUsuarioId = async () => {
@@ -124,53 +127,161 @@ const BlocoDeNotasScreen = ({ navigation }: any) => {
     }
   };
 
+  // Filtra as notas com base no termo de pesquisa (pesquisando em conteúdo e tags)
+  const notasFiltradas = notas.filter((nota) => {
+    const termo = searchTerm.toLowerCase();
+    const conteudo = nota.conteudo.toLowerCase();
+    const tagsString = nota.tags ? nota.tags.join(" ").toLowerCase() : "";
+    return conteudo.includes(termo) || tagsString.includes(termo);
+  });
+
+  // Cria os estilos de forma dinâmica usando os valores do tema
+  const dynamicStyles = StyleSheet.create({
+    container: { 
+      flex: 1, 
+      padding: 20, 
+      backgroundColor: theme.backgroundColor 
+    },
+    titulo: { 
+      fontSize: 24, 
+      fontWeight: "bold", 
+      textAlign: "center", 
+      marginBottom: 20,
+      color: theme.textColor 
+    },
+    input: { 
+      borderWidth: 1, 
+      borderColor: theme.borderColor,
+      borderRadius: 8, 
+      padding: 10, 
+      backgroundColor: theme.cardBackground, 
+      marginBottom: 10,
+      color: theme.textColor
+    },
+    inputDescricao: { 
+      minHeight: 80, 
+      textAlignVertical: "top", 
+      color: theme.textColor
+    },
+    botaoAdicionar: { 
+      backgroundColor: theme.buttonBackground, 
+      padding: 12, 
+      borderRadius: 8, 
+      alignItems: "center" 
+    },
+    botaoCancelar: { 
+      backgroundColor: "red", 
+      padding: 12, 
+      borderRadius: 8, 
+      alignItems: "center", 
+      marginBottom: 10 
+    },
+    textoBotao: { 
+      color: theme.buttonText, 
+      fontWeight: "bold", 
+      fontSize: 18 
+    },
+    listaNotas: { 
+      marginTop: 10 
+    },
+    notaContainer: { 
+      flexDirection: "row", 
+      alignItems: "center", 
+      backgroundColor: theme.cardBackground, 
+      padding: 10, 
+      borderRadius: 8, 
+      marginTop: 10 
+    },
+    notaFavorita: { 
+      backgroundColor: "#FFEBEE" 
+    },
+    notaTitulo: { 
+      fontSize: 18, 
+      fontWeight: "bold", 
+      color: theme.textColor 
+    },
+    notaDescricao: { 
+      fontSize: 16, 
+      color: theme.textColor, 
+      marginTop: 5 
+    },
+    acoesContainer: { 
+      flexDirection: "row", 
+      gap: 10 
+    },
+    searchInput: {
+      borderWidth: 1,
+      borderColor: theme.borderColor,
+      borderRadius: 8,
+      padding: 10,
+      backgroundColor: theme.cardBackground,
+      marginBottom: 10,
+      color: theme.textColor,
+    },
+  });
+
   return (
-    <View style={styles.container}>
+    <View style={dynamicStyles.container}>
       <HeaderComum screenName="Bloco de Notas" />
-      <Text style={styles.titulo}>Minhas Anotações</Text>
+      <Text style={dynamicStyles.titulo}>Minhas Anotações</Text>
+
+      {/* Campo de pesquisa */}
+      <TextInput
+        style={dynamicStyles.searchInput}
+        placeholder="Pesquisar anotações..."
+        placeholderTextColor={theme.placeholderTextColor}
+        value={searchTerm}
+        onChangeText={setSearchTerm}
+      />
 
       <TextInput
-        style={styles.input}
+        style={dynamicStyles.input}
         placeholder="Título da anotação (ex: React, Banco de Dados)"
+        placeholderTextColor={theme.placeholderTextColor}
         value={tags}
         onChangeText={setTags}
       />
 
       <TextInput
-        style={[styles.input, styles.inputDescricao]}
+        style={[dynamicStyles.input, dynamicStyles.inputDescricao]}
         placeholder="Descrição da anotação..."
+        placeholderTextColor={theme.placeholderTextColor}
         value={novaNota}
         onChangeText={setNovaNota}
         multiline
       />
 
-      <TouchableOpacity style={styles.botaoAdicionar} onPress={adicionarNota}>
-        <Text style={styles.textoBotao}>{editandoNota ? "Salvar" : "Adicionar Nota"}</Text>
+      <TouchableOpacity style={dynamicStyles.botaoAdicionar} onPress={adicionarNota}>
+        <Text style={dynamicStyles.textoBotao}>
+          {editandoNota ? "Salvar" : "Adicionar Nota"}
+        </Text>
       </TouchableOpacity>
 
       {editandoNota && (
-        <TouchableOpacity style={styles.botaoCancelar} onPress={cancelarEdicao}>
-          <Text style={styles.textoBotao}>Cancelar</Text>
+        <TouchableOpacity style={dynamicStyles.botaoCancelar} onPress={cancelarEdicao}>
+          <Text style={dynamicStyles.textoBotao}>Cancelar</Text>
         </TouchableOpacity>
       )}
 
       {loading ? (
-        <ActivityIndicator size="large" color="#2979FF" style={{ marginTop: 20 }} />
+        <ActivityIndicator size="large" color={theme.buttonBackground} style={{ marginTop: 20 }} />
       ) : (
-        <ScrollView style={styles.listaNotas} showsVerticalScrollIndicator={true}>
-          {notas.map((nota) => (
+        <ScrollView style={dynamicStyles.listaNotas} showsVerticalScrollIndicator={true}>
+          {notasFiltradas.map((nota) => (
             <TouchableOpacity
               key={nota.id}
-              style={[styles.notaContainer, nota.favorita && styles.notaFavorita]}
+              style={[dynamicStyles.notaContainer, nota.favorita && dynamicStyles.notaFavorita]}
               onPress={() => navigation.navigate("DetalheNotaScreen", { nota })}
             >
               <View style={{ flex: 1 }}>
                 {Array.isArray(nota.tags) && nota.tags.length > 0 && (
-                  <Text style={styles.notaTitulo}>{nota.tags.join(", ")}</Text>
+                  <Text style={dynamicStyles.notaTitulo}>
+                    {nota.tags.join(", ")}
+                  </Text>
                 )}
-                <Text style={styles.notaDescricao}>{nota.conteudo}</Text>
+                <Text style={dynamicStyles.notaDescricao}>{nota.conteudo}</Text>
               </View>
-              <View style={styles.acoesContainer}>
+              <View style={dynamicStyles.acoesContainer}>
                 <TouchableOpacity onPress={() => alternarFavorito(nota)}>
                   <MaterialIcons
                     name={nota.favorita ? "favorite" : "favorite-border"}
@@ -179,7 +290,7 @@ const BlocoDeNotasScreen = ({ navigation }: any) => {
                   />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => iniciarEdicao(nota)}>
-                  <MaterialIcons name="edit" size={24} color="#2979FF" />
+                  <MaterialIcons name="edit" size={24} color={theme.buttonBackground} />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => removerNota(nota.id)}>
                   <MaterialIcons name="delete" size={24} color="black" />
@@ -195,21 +306,5 @@ const BlocoDeNotasScreen = ({ navigation }: any) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#f5f5f5" },
-  titulo: { fontSize: 24, fontWeight: "bold", textAlign: "center", marginBottom: 20 },
-  input: { borderWidth: 1, borderRadius: 8, padding: 10, backgroundColor: "#fff", marginBottom: 10 },
-  inputDescricao: { minHeight: 80, textAlignVertical: "top" },
-  botaoAdicionar: { backgroundColor: "#2979FF", padding: 12, borderRadius: 8, alignItems: "center" },
-  botaoCancelar: { backgroundColor: "red", padding: 12, borderRadius: 8, alignItems: "center", marginBottom: 10 },
-  textoBotao: { color: "#fff", fontWeight: "bold", fontSize: 18 },
-  listaNotas: { marginTop: 10 },
-  notaContainer: { flexDirection: "row", alignItems: "center", backgroundColor: "#E3F2FD", padding: 10, borderRadius: 8, marginTop: 10 },
-  notaFavorita: { backgroundColor: "#FFEBEE" },
-  notaTitulo: { fontSize: 18, fontWeight: "bold", color: "#004AAD" },
-  notaDescricao: { fontSize: 16, color: "#555", marginTop: 5 },
-  acoesContainer: { flexDirection: "row", gap: 10 },
-});
 
 export default BlocoDeNotasScreen;

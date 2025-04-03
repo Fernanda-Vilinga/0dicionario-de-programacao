@@ -91,10 +91,11 @@ export default async function quizRoutes(app: FastifyInstance) {
   app.get('/quiz/perguntas', async (req: FastifyRequest<{ Querystring: { categoria?: string } }>, reply: FastifyReply) => {
     const { categoria } = req.query;
     try {
-      let query = db.collection('quizPerguntas');
+      // Declaramos a variável como Query
+      let query: FirebaseFirestore.Query = db.collection('quizPerguntas');
+      // Se a categoria estiver definida, aplicamos o filtro
       if (categoria) {
-        let query: FirebaseFirestore.Query<FirebaseFirestore.DocumentData> = db.collection('quizPerguntas');
-
+        query = query.where("categoria", "==", categoria);
       }
       const snapshot = await query.get();
       if (snapshot.empty) {
@@ -107,7 +108,7 @@ export default async function quizRoutes(app: FastifyInstance) {
       return reply.status(500).send({ message: 'Erro ao listar perguntas.' });
     }
   });
-
+  
   // Atualizar uma pergunta de quiz
   app.put('/quiz/perguntas/:id', async (req: FastifyRequest<{ Params: { id: string }; Body: Partial<QuizQuestion> }>, reply: FastifyReply) => {
     const { id } = req.params;

@@ -74,9 +74,11 @@ function quizRoutes(app) {
         app.get('/quiz/perguntas', (req, reply) => __awaiter(this, void 0, void 0, function* () {
             const { categoria } = req.query;
             try {
+                // Declaramos a variável como Query
                 let query = firebaseConfig_1.default.collection('quizPerguntas');
+                // Se a categoria estiver definida, aplicamos o filtro
                 if (categoria) {
-                    let query = firebaseConfig_1.default.collection('quizPerguntas');
+                    query = query.where("categoria", "==", categoria);
                 }
                 const snapshot = yield query.get();
                 if (snapshot.empty) {

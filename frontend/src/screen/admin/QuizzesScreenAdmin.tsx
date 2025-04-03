@@ -94,9 +94,12 @@ const QuizzesScreen = () => {
       setRespostaCorreta(0);
     }
   };
-
   const handleSaveQuiz = async () => {
+    console.log('📌 handleSaveQuiz chamado');
+  
+    // Verificação dos campos antes de enviar
     if (!quizPergunta.trim() || !quizCategoria.trim() || quizOpcoes.length === 0) {
+      console.log('⚠️ Erro: Campos obrigatórios não preenchidos');
       Alert.alert('Erro', 'Preencha todos os campos, adicione pelo menos uma opção e selecione a categoria.');
       return;
     }
@@ -109,13 +112,14 @@ const QuizzesScreen = () => {
     };
   
     try {
-      const url = modalType === 'add'
-        ? `${API_BASE_URL}/quiz/perguntas`
-        : `${API_BASE_URL}/quiz/perguntas/${selectedQuiz?.id}`;
-      const method = modalType === 'add' ? 'POST' : 'PUT';
+      const isEditing = modalType === 'edit' && selectedQuiz?.id;
+      const url = isEditing
+        ? `${API_BASE_URL}/quiz/perguntas/${selectedQuiz.id}`
+        : `${API_BASE_URL}/quiz/perguntas`;
+      const method = isEditing ? 'PUT' : 'POST';
   
-      console.log('Enviando requisição para:', url, 'com método:', method);
-      console.log('Payload:', payload);
+      console.log(`📤 Enviando requisição para: ${url} | Método: ${method}`);
+      console.log('📦 Payload:', JSON.stringify(payload, null, 2));
   
       const response = await fetch(url, {
         method,
@@ -123,20 +127,26 @@ const QuizzesScreen = () => {
         body: JSON.stringify(payload),
       });
   
+      console.log('📥 Resposta recebida, verificando status...');
+  
       const responseData = await response.json();
-      console.log('Resposta da API:', responseData);
+      console.log('📩 Resposta da API:', responseData);
   
-      if (!response.ok) throw new Error(responseData.message || 'Falha ao salvar o quiz');
+      if (!response.ok) {
+        console.log('❌ Erro na API:', responseData.message);
+        throw new Error(responseData.message || 'Erro ao salvar o quiz.');
+      }
   
-      Alert.alert('Sucesso', modalType === 'add' ? 'Quiz criado!' : 'Quiz atualizado!');
-      fetchQuizzes();
+      console.log('✅ Quiz salvo com sucesso!');
+      Alert.alert('Sucesso', isEditing ? 'Quiz atualizado com sucesso!' : 'Quiz criado com sucesso!');
+      fetchQuizzes(); // Atualiza a lista de quizzes
       closeModal();
     } catch (error) {
-      console.error('Erro ao salvar quiz:', error);
-      Alert.alert('Erro', error instanceof Error ? error.message : 'Ocorreu um erro desconhecido');
+      console.error('❌ Erro ao salvar quiz:', error);
+      Alert.alert('Erro', error instanceof Error ? error.message : 'Ocorreu um erro desconhecido.');
     }
   };
-
+  
   const handleDeleteQuiz = async (id: string): Promise<void> => {
     try {
       // Envia a requisição DELETE sem body
@@ -208,14 +218,13 @@ const QuizzesScreen = () => {
                 onValueChange={(itemValue) => setQuizCategoria(itemValue)}
                 style={styles.picker}
               >
-                <Picker.Item label="Selecione uma categoria" value="" />
-                <Picker.Item label="Selecione uma categoria" value="" />
-                <Picker.Item label="Desenvolvimento Web" value="desenvolvimento-web" />
-                <Picker.Item label="Desenvolvimento Mobile" value="desenvolvimento-mobile" />
-                <Picker.Item label="Ciência de Dados" value="ciencia-dados" />
-                <Picker.Item label="DevOps & Infraestrutura" value="devops-infra" />
-                <Picker.Item label="Desenvolvimento de Jogos" value="desenvolvimento-jogos" />
-                <Picker.Item label="Programação de Sistemas" value="programacao-sistemas" />
+               <Picker.Item label="Escolha a categoria" value="" />
+                <Picker.Item label="Desenvolvimento Web" value="Desenvolvimento Web" />
+                <Picker.Item label="Desenvolvimento Mobile" value="Desenvolvimento Mobile" />
+                <Picker.Item label="Ciência de Dados" value="Ciência de Dados" />
+                <Picker.Item label="DevOps & Infraestrutura" value="DevOps & Infraestrutura" />
+                <Picker.Item label="Desenvolvimento de Jogos" value="Desenvolvimento de Jogos" />
+                <Picker.Item label="Programação de Sistemas" value="Programação de Sistemas" />
               </Picker>
             </View>
             <Text style={styles.label}>Opções de Resposta</Text>

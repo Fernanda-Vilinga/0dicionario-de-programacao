@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { 
   View, 
   Text, 
@@ -10,11 +10,13 @@ import {
   Image,
   Modal
 } from 'react-native';
+import { Agenda } from 'react-native-calendars';
 import HeaderHomes from '../HeaderHomes';
 import SettingsScreenMentor from './SettingScreenMentor';
 import axios from 'axios';
 import API_BASE_URL from 'src/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ThemeContext } from 'src/context/ThemeContext';
 
 interface SessaoMentoria {
   sessaoId: string;
@@ -38,6 +40,8 @@ interface Perfil {
 }
 
 const MentorDashboard = () => {
+  const { theme } = useContext(ThemeContext);
+  
   const [isSettingsVisible, setSettingsVisible] = useState(false);
   const [pendingSessions, setPendingSessions] = useState<SessaoMentoriaExtended[]>([]);
   const [upcomingSessions, setUpcomingSessions] = useState<SessaoMentoriaExtended[]>([]);
@@ -45,11 +49,10 @@ const MentorDashboard = () => {
   const [loadingAceitar, setLoadingAceitar] = useState<string | null>(null);
   const [mentorId, setMentorId] = useState<string | null>(null);
   
-  // Para exibir o modal de perfil
+  // Modal de perfil
   const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<Perfil | null>(null);
 
-  // Busca o mentorId (usuário logado) do AsyncStorage
   useEffect(() => {
     const fetchUsuario = async () => {
       try {
@@ -67,7 +70,6 @@ const MentorDashboard = () => {
     fetchUsuario();
   }, []);
 
-  // Função para buscar os dados do perfil de um usuário
   const fetchPerfil = async (usuarioId: string): Promise<Perfil> => {
     try {
       const response = await axios.get(`${API_BASE_URL}/perfil/${usuarioId}`);
@@ -83,7 +85,6 @@ const MentorDashboard = () => {
     }
   };
 
-  // Função para processar sessões, adicionando nome e foto do usuário
   const processSessions = async (sessions: SessaoMentoria[]): Promise<SessaoMentoriaExtended[]> => {
     return Promise.all(
       sessions.map(async (sessao) => {
@@ -97,7 +98,6 @@ const MentorDashboard = () => {
     );
   };
 
-  // Busca e processa as sessões (pendentes e aceitas) para o mentor
   useEffect(() => {
     const fetchSessions = async () => {
       if (!mentorId) return;
@@ -109,17 +109,12 @@ const MentorDashboard = () => {
         const upcomingResponse = await axios.get(`${API_BASE_URL}/mentoria/sessoes`, {
           params: { mentorId, status: 'aceita' }
         });
-        // Supondo que o backend retorna um array de SessaoMentoria (com usuarioId, data, etc.)
         const pending: SessaoMentoria[] = pendingResponse.data;
         const upcoming: SessaoMentoria[] = upcomingResponse.data;
-        // Processa as sessões para obter os dados do perfil do usuário solicitante
         const pendingProcessed = await processSessions(pending);
         const upcomingProcessed = await processSessions(upcoming);
-        // Ordena por data (mais antiga primeiro)
-        const sortByDate = (b: SessaoMentoriaExtended , a: SessaoMentoriaExtended) =>
-          new Date(b.data).getTime() - new Date(a.data).getTime();
-
-        
+        const sortByDate = (a: SessaoMentoriaExtended, b: SessaoMentoriaExtended) =>
+          new Date(a.data).getTime() - new Date(b.data).getTime();
         setPendingSessions(pendingProcessed.sort(sortByDate));
         setUpcomingSessions(upcomingProcessed.sort(sortByDate));
       } catch (error) {
@@ -166,14 +161,35 @@ const MentorDashboard = () => {
     }
   };
 
-  // Abre o modal de perfil com os dados do usuário
   const abrirPerfil = (perfil: Perfil) => {
     setSelectedProfile(perfil);
     setProfileModalVisible(true);
   };
 
+  // Preparação dos dados para a Agenda
+  const [items, setItems] = useState<{ [key: string]: SessaoMentoriaExtended[] }>({});
+
+  useEffect(() => {
+    const newItems: { [key: string]: SessaoMentoriaExtended[] } = {};
+    upcomingSessions.forEach(sessao => {
+      if (!newItems[sessao.data]) {
+        newItems[sessao.data] = [];
+      }
+      newItems[sessao.data].push(sessao);
+    });
+    setItems(newItems);
+  }, [upcomingSessions]);
+
+  const renderAgendaItem = (item: SessaoMentoriaExtended) => {
+    return (
+      <View style={[styles.agendaItem, { backgroundColor: theme.cardBackground }]}>
+        <Text style={[styles.agendaItemText, { color: theme.textColor }]}>{item.horario} - {item.nomeUsuario}</Text>
+      </View>
+    );
+  };
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.dashboardBackground }]}>
       <View style={styles.header}>
         <HeaderHomes
           screenName="Painel do Mentor"
@@ -181,17 +197,19 @@ const MentorDashboard = () => {
         />
       </View>
 
-      {/* Próximas Sessões */}
-      <Text style={styles.sectionTitle}>Próximas Sessões</Text>
+      {/* Área de Agenda/Calendário */}
+      <Text style={[styles.sectionTitle, { color: theme.dashboardTextColor }]}>Agenda de Sessões </Text>
+   
+      {/* Lista Tradicional de Próximas Sessões */}
+      <Text style={[styles.sectionTitle, { color: theme.dashboardTextColor }]}>Próximas Sessões</Text>
       {loadingSessions ? (
         <ActivityIndicator size="large" color="#2979FF" />
       ) : upcomingSessions.length > 0 ? (
         upcomingSessions.map(sessao => (
-          <View key={sessao.sessaoId} style={styles.card}>
-            <Text style={styles.dateText}>📅 {sessao.data} - {sessao.horario}</Text>
+          <View key={sessao.sessaoId} style={[styles.card, { backgroundColor: theme.dashboardCardBackground, borderColor: theme.borderColor }]}>
+            <Text style={[styles.dateText, { color: theme.textColor }]}>{`📅 ${sessao.data} - ${sessao.horario}`}</Text>
             <View style={styles.sessionInfo}>
               <TouchableOpacity onPress={async () => {
-                // Busca o perfil novamente para exibir detalhes completos
                 const perfil = await fetchPerfil(sessao.usuarioId);
                 abrirPerfil(perfil);
               }}>
@@ -201,25 +219,25 @@ const MentorDashboard = () => {
                 />
               </TouchableOpacity>
               <View style={styles.detailsContainer}>
-                <Text style={styles.userName}>{sessao.nomeUsuario}</Text>
-                <Text style={styles.detailText}>Plano: {sessao.planoMentoria}</Text>
-                <Text style={styles.detailText}>Categoria: {sessao.categoria}</Text>
+                <Text style={[styles.userName, { color: theme.textColor }]}>{sessao.nomeUsuario}</Text>
+                <Text style={[styles.detailText, { color: theme.textColor }]}>Plano: {sessao.planoMentoria}</Text>
+                <Text style={[styles.detailText, { color: theme.textColor }]}>Categoria: {sessao.categoria}</Text>
               </View>
             </View>
           </View>
         ))
       ) : (
-        <Text style={styles.sessionText}>Nenhuma sessão agendada.</Text>
+        <Text style={[styles.sessionText, { color: theme.textColor }]}>Nenhuma sessão agendada.</Text>
       )}
 
-      {/* Solicitações Pendentes */}
-      <Text style={styles.sectionTitle}>Solicitações Pendentes</Text>
+      {/* Lista de Solicitações Pendentes */}
+      <Text style={[styles.sectionTitle, { color: theme.dashboardTextColor }]}>Solicitações Pendentes</Text>
       {loadingSessions ? (
         <ActivityIndicator size="large" color="#2979FF" />
       ) : pendingSessions.length > 0 ? (
         pendingSessions.map(sessao => (
-          <View key={sessao.sessaoId} style={styles.card}>
-            <Text style={styles.dateText}>📅 {sessao.data} - {sessao.horario}</Text>
+          <View key={sessao.sessaoId} style={[styles.card, { backgroundColor: theme.dashboardCardBackground, borderColor: theme.borderColor }]}>
+            <Text style={[styles.dateText, { color: theme.textColor }]}>{`📅 ${sessao.data} - ${sessao.horario}`}</Text>
             <View style={styles.sessionInfo}>
               <TouchableOpacity onPress={async () => {
                 const perfil = await fetchPerfil(sessao.usuarioId);
@@ -231,42 +249,41 @@ const MentorDashboard = () => {
                 />
               </TouchableOpacity>
               <View style={styles.detailsContainer}>
-                <Text style={styles.userName}>{sessao.nomeUsuario}</Text>
-                <Text style={styles.detailText}>Plano: {sessao.planoMentoria}</Text>
-                <Text style={styles.detailText}>Categoria: {sessao.categoria}</Text>
+                <Text style={[styles.userName, { color: theme.textColor }]}>{sessao.nomeUsuario}</Text>
+                <Text style={[styles.detailText, { color: theme.textColor }]}>Plano: {sessao.planoMentoria}</Text>
+                <Text style={[styles.detailText, { color: theme.textColor }]}>Categoria: {sessao.categoria}</Text>
               </View>
             </View>
             <TouchableOpacity 
-              style={styles.button}
+              style={[styles.button, { backgroundColor: '#2979FF'  }]}
               onPress={() => aceitarMentoria(sessao.sessaoId)}
               disabled={loadingAceitar === sessao.sessaoId}
             >
               {loadingAceitar === sessao.sessaoId ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color="#2979FF" />
               ) : (
-                <Text style={styles.buttonText}>Aceitar</Text>
+                <Text style={[styles.buttonText, { color: theme.buttonText }]}>Aceitar</Text>
               )}
             </TouchableOpacity>
           </View>
         ))
       ) : (
-        <Text style={styles.sessionText}>Nenhuma solicitação pendente.</Text>
+        <Text style={[styles.sessionText, { color: theme.textColor }]}>Nenhuma solicitação pendente.</Text>
       )}
 
-      {/* Modal de Perfil do Usuário */}
       <Modal visible={profileModalVisible} animationType="slide" transparent>
         <View style={styles.profileModalContainer}>
-          <View style={styles.profileModalContent}>
+          <View style={[styles.profileModalContent, { backgroundColor: theme.dashboardCardBackground }]}>
             {selectedProfile && (
               <>
                 <Image 
                   source={{ uri: selectedProfile.profileImage || 'https://via.placeholder.com/150' }} 
                   style={styles.profileImage} 
                 />
-                <Text style={styles.profileName}>{selectedProfile.nome}</Text>
-                <Text style={styles.profileBio}>{selectedProfile.bio || ''}</Text>
-                <TouchableOpacity style={styles.closeButton} onPress={() => setProfileModalVisible(false)}>
-                  <Text style={styles.closeButtonText}>Fechar</Text>
+                <Text style={[styles.profileName, { color: theme.textColor }]}>{selectedProfile.nome}</Text>
+                <Text style={[styles.profileBio, { color: theme.textColor }]}>{selectedProfile.bio || ''}</Text>
+                <TouchableOpacity style={[styles.closeButton, { backgroundColor: theme.buttonBackground }]} onPress={() => setProfileModalVisible(false)}>
+                  <Text style={[styles.closeButtonText, { color: theme.buttonText }]}>Fechar</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -283,39 +300,128 @@ const MentorDashboard = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5', padding: 20 },
-  header: { backgroundColor: '#f5f5f5' },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginVertical: 15 },
+  container: { 
+    flex: 1, 
+    paddingHorizontal: 20, 
+    paddingTop: 10 
+  },
+  header: { 
+    marginBottom: 10 
+  },
+  sectionTitle: { 
+    fontSize: 20, 
+    fontWeight: '600', 
+    marginVertical: 15 
+  },
   card: { 
-    backgroundColor: '#fff', 
-    padding: 15, 
-    borderRadius: 10, 
-    marginVertical: 5, 
-    borderWidth: 1, 
-    borderColor: 'gray' 
+    borderRadius: 12, 
+    padding: 20, 
+    marginVertical: 10, 
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1
   },
-  dateText: { fontSize: 16, fontWeight: 'bold', marginBottom: 5 },
-  sessionInfo: { flexDirection: 'row', alignItems: 'center' },
-  userImage: { width: 50, height: 50, borderRadius: 25, marginRight: 10 },
-  detailsContainer: { flex: 1 },
-  userName: { fontSize: 16, fontWeight: 'bold' },
-  detailText: { fontSize: 14, color: 'gray' },
-  sessionText: { fontSize: 16 },
+  dateText: { 
+    fontSize: 14, 
+    marginBottom: 8 
+  },
+  sessionInfo: { 
+    flexDirection: 'row', 
+    alignItems: 'center' 
+  },
+  userImage: { 
+    width: 50, 
+    height: 50, 
+    borderRadius: 25, 
+    marginRight: 15 
+  },
+  detailsContainer: { 
+    flex: 1 
+  },
+  userName: { 
+    fontSize: 16, 
+    fontWeight: '600'
+  },
+  detailText: { 
+    fontSize: 14, 
+    marginTop: 2 
+  },
+  sessionText: { 
+    fontSize: 16, 
+    textAlign: 'center', 
+    marginVertical: 20 
+  },
   button: { 
-    backgroundColor: '#2979FF', 
-    padding: 10, 
-    borderRadius: 5, 
+    paddingVertical: 12, 
+    borderRadius: 8, 
     alignItems: 'center', 
-    marginTop: 10 
+    marginTop: 15 
   },
-  buttonText: { color: 'white', fontWeight: 'bold' },
-  profileModalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-  profileModalContent: { backgroundColor: '#fff', padding: 20, borderRadius: 10, alignItems: 'center', width: '80%' },
-  profileImage: { width: 150, height: 150, borderRadius: 75, marginBottom: 15 },
-  profileName: { fontSize: 20, fontWeight: 'bold', marginBottom: 10 },
-  profileBio: { fontSize: 16, textAlign: 'center', marginBottom: 20 },
-  closeButton: { backgroundColor: '#2979FF', padding: 10, borderRadius: 5 },
-  closeButtonText: { color: 'white', fontWeight: 'bold' }
+  buttonText: { 
+    fontSize: 16, 
+    fontWeight: '600' 
+  },
+  // Estilização da Agenda
+  agendaItem: {
+    padding: 15,
+    marginRight: 10,
+    marginTop: 17,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2
+  },
+  agendaItemText: {
+    fontSize: 14
+  },
+  emptyDate: {
+    flex: 1,
+    paddingTop: 30,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  profileModalContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    backgroundColor: 'rgba(0,0,0,0.5)' 
+  },
+  profileModalContent: { 
+    padding: 25, 
+    borderRadius: 12, 
+    alignItems: 'center', 
+    width: '80%' 
+  },
+  profileImage: { 
+    width: 150, 
+    height: 150, 
+    borderRadius: 75, 
+    marginBottom: 15 
+  },
+  profileName: { 
+    fontSize: 22, 
+    fontWeight: '700', 
+    marginBottom: 10 
+  },
+  profileBio: { 
+    fontSize: 16, 
+    textAlign: 'center', 
+    marginBottom: 20 
+  },
+  closeButton: { 
+    paddingVertical: 10, 
+    paddingHorizontal: 20, 
+    borderRadius: 8 
+  },
+  closeButtonText: { 
+    fontSize: 16, 
+    fontWeight: '600' 
+  }
 });
 
 export default MentorDashboard;

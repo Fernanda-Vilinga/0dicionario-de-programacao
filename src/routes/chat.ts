@@ -100,6 +100,37 @@ async function chatRoutes(app: FastifyInstance) {
       return reply.status(500).send({ message: 'Erro ao verificar mentoria.' });
     }
   });
+  // Rota para enviar áudio como mensagem no chat
+app.post('/chat/enviar-audio', async (req, reply) => {
+  try {
+    const body = req.body as { sessaoId?: string; remetenteId?: string; mensagem?: string };
+    if (!body?.sessaoId || !body?.remetenteId || !body?.mensagem) {
+      return reply.status(400).send({ message: 'Todos os campos são obrigatórios.' });
+    }
+
+    // Verifica se a sessão existe e foi aceita
+    const sessaoRef = db.collection('sessaoMentoria').doc(body.sessaoId);
+    const sessao = await sessaoRef.get();
+    if (!sessao.exists || sessao.data()?.status !== 'aceita') {
+      return reply.status(403).send({ message: 'Sessão de mentoria não ativa.' });
+    }
+
+    // Salva a mensagem de áudio no Firestore, marcando o tipo como "audio"
+    const chatRef = db.collection('chats').doc(body.sessaoId);
+    await chatRef.collection('mensagens').add({
+      remetenteId: body.remetenteId,
+      mensagem: body.mensagem, // Aqui você envia o URI (ou URL) do áudio
+      tipo: 'audio',
+      timestamp: new Date(),
+    });
+
+    return reply.send({ message: 'Áudio enviado com sucesso.' });
+  } catch (error) {
+    console.error("Erro ao enviar áudio:", error);
+    return reply.status(500).send({ message: 'Erro ao enviar áudio.' });
+  }
+});
+
 }
 
 export default chatRoutes;

@@ -1,8 +1,7 @@
-import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import React, { useContext } from "react";
+import { NavigationContainer, DefaultTheme, DarkTheme } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
-import { DefaultTheme, DarkTheme } from "@react-navigation/native";
-// Importando as telas
+// Importação das telas
 import Loading from "./src/screen/Loading";
 import LoginRegisterTabs from "./src/screen/AuthTabsScreen";
 import DashboardScreen from "./src/screen/User/HomeUser";
@@ -20,13 +19,17 @@ import AdminDashboardScreen from "./src/screen/admin/AdminNavigator";
 import MentorNavigator from "./src/screen/mentor/MentorNavigator";
 import SugestoesScreen from "./src/screen/admin/SugestoesScreen";
 import DetalheNotaScreen from "./src/screen/User/DetalheNotaScreen";
-import TabsNavigator from "./src/screen/User/HomeUser"; // Corrigido nome
-import { ThemeProvider } from "@react-navigation/native";
+import TabsNavigator from "./src/screen/User/HomeUser";
 import ProfileMentorScreen from "./src/screen/mentor/ProfileMentor";
-import ManageQuestionsScreen from "./src/screen/admin/ManageQuestionsScreen"
-import MentoresScreen from "./src/screen/User/MentoresScreen"
+import ManageQuestionsScreen from "./src/screen/admin/ManageQuestionsScreen";
+import MentoresScreen from "./src/screen/User/MentoresScreen";
 import ChatsScreen from "./src/screen/mentor/ChatsScreen";
-// Tipagem das rotas
+import AudioRecorderModal from "./src/screen/mentor/Audio";
+import AudioPlayer from "./src/screen/mentor/Player";
+import SettingsScreenMentor from "./src/screen/mentor/SettingScreenMentor";
+
+import { ThemeContext, ThemeProvider } from "./src/context/ThemeContext"; // ajuste o caminho conforme necessário
+
 export type RootStackParamList = {
   Loading: undefined;
   LoginRegister: undefined;
@@ -46,47 +49,62 @@ export type RootStackParamList = {
   MentorNavigator: undefined;
   SugestoesScreen: undefined;
   DetalheNotaScreen: undefined;
-  ManageQuestionsScreen: { quizId: string }; // Ajuste aqui
+  ManageQuestionsScreen: { quizId: string };
   ProfileMentor: undefined;
+  Chat: undefined;
+  Mentores: undefined;
+  DefinicoesMentor: undefined;
 };
-const Stack = createStackNavigator();
+
+const Stack = createStackNavigator<RootStackParamList>();
 
 const AppNavigator = () => {
   return (
-    <ThemeProvider value={DefaultTheme}>
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Loading" component={Loading} />
-      <Stack.Screen name="LoginRegister" component={LoginRegisterTabs} />
-      <Stack.Screen name="TabsNavigator" component={TabsNavigator} />
-      <Stack.Screen name="Dashboard" component={DashboardScreen} />
-      <Stack.Screen name="Dicionario" component={DicionarioHome} />
-      <Stack.Screen name="Quiz" component={QuizScreen} />
-      <Stack.Screen name="BlocoDeNotas" component={BlocoDeNotasScreen} />
-      <Stack.Screen name="Mentoria" component={MentoriaScreen} />
-      <Stack.Screen name="Perfil" component={ProfileScreen} />
-      <Stack.Screen name="Definicoes" component={SettingsScreen} />
-      <Stack.Screen name="Favoritos" component={FavoritesScreen} />
-      <Stack.Screen name="Sugestoes" component={SuggestionsScreen} />
-      <Stack.Screen name="Historico" component={HistoryScreen} />
-      <Stack.Screen name="Sobre" component={AboutScreen} />
-      <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
-      <Stack.Screen name="MentorNavigator" component={MentorNavigator} />
-      <Stack.Screen name="SugestoesScreen" component={SugestoesScreen} />
-      <Stack.Screen name="DetalheNotaScreen" component={DetalheNotaScreen} />
-      <Stack.Screen name="Mentores" component={MentoresScreen} />
-      <Stack.Screen name="ProfileMentor" component={ProfileMentorScreen} />
-      <Stack.Screen name="Chat" component={ChatsScreen} />
+    <Stack.Screen name="Loading" component={Loading} />
+    <Stack.Screen name="LoginRegister" component={LoginRegisterTabs} />
+    <Stack.Screen name="TabsNavigator" component={TabsNavigator} />
+    <Stack.Screen name="Dashboard" component={DashboardScreen} />
+    <Stack.Screen name="Dicionario" component={DicionarioHome} />
+    <Stack.Screen name="Quiz" component={QuizScreen} />
+    <Stack.Screen name="BlocoDeNotas" component={BlocoDeNotasScreen} />
+    <Stack.Screen name="Mentoria" component={MentoriaScreen} />
+    <Stack.Screen name="Perfil" component={ProfileScreen} />
+    <Stack.Screen name="Definicoes" component={SettingsScreen} />
+    
+    <Stack.Screen name="Favoritos" component={FavoritesScreen} />
+    <Stack.Screen name="Sugestoes" component={SuggestionsScreen} />
+    <Stack.Screen name="Historico" component={HistoryScreen} />
+    <Stack.Screen name="Sobre" component={AboutScreen} />
+    <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+    <Stack.Screen name="MentorNavigator" component={MentorNavigator} />
+    <Stack.Screen name="SugestoesScreen" component={SugestoesScreen} />
+    <Stack.Screen name="DetalheNotaScreen" component={DetalheNotaScreen} />
+    <Stack.Screen name="Mentores" component={MentoresScreen} />
+    <Stack.Screen name="ProfileMentor" component={ProfileMentorScreen} />
+    <Stack.Screen name="Chat" component={ChatsScreen} />
+ 
+  </Stack.Navigator>
+  );
+};
 
-    </Stack.Navigator>
-    </ThemeProvider>
+const AppContent = () => {
+  // Use o tema do contexto para definir o tema do NavigationContainer
+  const { isDarkMode } = useContext(ThemeContext);
+  const navigationTheme = isDarkMode ? DarkTheme : DefaultTheme;
+
+  return (
+    <NavigationContainer theme={navigationTheme}>
+      <AppNavigator />
+    </NavigationContainer>
   );
 };
 
 const App = () => {
   return (
-    <NavigationContainer>
-      <AppNavigator />
-    </NavigationContainer>
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 };
 

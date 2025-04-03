@@ -38,6 +38,33 @@ function dicionarioRoutes(app) {
                 return reply.status(500).send({ message: 'Erro ao buscar termo' });
             }
         }));
+        // 🔍 Nova rota de pesquisa simples (substring search)
+        // Exemplo: /dicionario/termos/simples?termo=co
+        app.get('/dicionario/termos/simples', (req, reply) => __awaiter(this, void 0, void 0, function* () {
+            let { termo } = req.query;
+            if (!termo) {
+                return reply.status(400).send({ message: 'Termo não fornecido.' });
+            }
+            termo = termo.toLowerCase().trim();
+            try {
+                // Busca todos os documentos na coleção
+                const termSnapshot = yield firebaseConfig_1.default.collection('termos').get();
+                if (termSnapshot.empty) {
+                    return reply.status(404).send({ message: 'Nenhum termo encontrado.' });
+                }
+                let termos = termSnapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
+                // Filtra os termos que contenham o substring informado
+                const resultado = termos.filter(t => t.termo_lower && t.termo_lower.includes(termo));
+                if (resultado.length === 0) {
+                    return reply.status(404).send({ message: 'Nenhum termo encontrado.' });
+                }
+                return reply.send(resultado);
+            }
+            catch (error) {
+                console.error("Erro ao buscar termo simples:", error);
+                return reply.status(500).send({ message: 'Erro ao buscar termo simples' });
+            }
+        }));
         // 📌 Rota para listar todos os termos cadastrados
         app.get('/dicionario/todos', (_, reply) => __awaiter(this, void 0, void 0, function* () {
             try {
@@ -56,7 +83,7 @@ function dicionarioRoutes(app) {
         }));
         // ✅ Rota para adicionar um termo
         app.post('/dicionario/termo', (req, reply) => __awaiter(this, void 0, void 0, function* () {
-            const { termo, definicao, exemplos, linguagem } = req.body;
+            const { termo, definicao, exemplos, linguagem, categoria } = req.body;
             if (!termo || !definicao) {
                 return reply.status(400).send({ message: 'Preencha todos os campos obrigatórios.' });
             }
@@ -67,6 +94,7 @@ function dicionarioRoutes(app) {
                     definicao,
                     exemplos: exemplos || [],
                     linguagem: linguagem || 'Geral',
+                    categoria: categoria || 'Sem categoria',
                 });
                 return reply.status(201).send({ message: 'Termo adicionado com sucesso.', id: newTerm.id });
             }
