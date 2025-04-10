@@ -32,14 +32,18 @@ const DictionaryScreen: React.FC = () => {
   const fetchTerms = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/dicionario/todos`);
-      const data = await response.json();
+      const data: Term[] = await response.json();
+  
+      // Ordena os termos em ordem alfabética pela propriedade 'termo'
+      data.sort((a: Term, b: Term) => a.termo.localeCompare(b.termo));
+  
       setTerms(data);
     } catch (error) {
       console.error('Erro ao buscar termos:', error);
       Alert.alert('Erro', 'Não foi possível carregar os termos.');
     }
   };
-
+  
   const handleSaveTerm = async () => {
     if (!termInput || !definitionInput || !languageInput) {
       Alert.alert('Erro', 'Preencha os campos obrigatórios: termo, definição e linguagem.');

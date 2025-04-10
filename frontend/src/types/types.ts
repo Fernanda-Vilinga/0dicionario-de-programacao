@@ -58,6 +58,7 @@ export type RootStackParamList = {
   Mentores: undefined;
   Chat: undefined;
   Audio: undefined;
-  Player: undefined
+  Player: undefined;
+  ListaSessao: undefined;
 };
 

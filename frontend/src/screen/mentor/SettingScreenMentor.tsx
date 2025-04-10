@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import React, { useState,useEffect } from "react";
 import { 
   View, 
   Text, 
   StyleSheet, 
   TouchableOpacity, 
   Switch, 
-  TextInput 
+  TextInput ,Alert,ToastAndroid
 } from "react-native";
 import Modal from "react-native-modal";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
@@ -13,6 +13,13 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { RootStackParamList } from "src/types/types";
+import API_BASE_URL from "src/config";
+
+interface UserProfile {
+  email: string;
+  tipo_de_usuario: string;
+  // outros campos se necessário...
+}
 
 interface SettingsModalProps {
   isVisible: boolean;
@@ -26,20 +33,165 @@ const SettingsScreenMentor: React.FC<SettingsModalProps> = ({ isVisible, onClose
   const [isAvailable, setIsAvailable] = useState(true);
   const [price, setPrice] = useState(""); // Aqui você pode adicionar uma lógica para editar o preço via TextInput em outra tela se preferir
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
-
+  const [showModalPromocao, setShowModalPromocao] = useState(false);
+ const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+   const [promotionPending, setPromotionPending] = useState(false);
+  
+    // Função para buscar perfil do usuário via ID
+    const fetchUserProfile = async (usuarioId: string) => {
+      try {
+        console.log("[DEBUG] Buscando perfil do usuário com ID:", usuarioId);
+        const response = await fetch(`${API_BASE_URL}/perfil/${usuarioId}`);
+        const data = await response.json();
+        console.log("[DEBUG] Perfil recebido:", data);
+        setUserProfile(data);
+      } catch (error) {
+        console.error("[ERROR] Erro ao buscar perfil:", error);
+        Alert.alert("Erro", "Não foi possível carregar os dados do perfil.");
+      }
+    };
+  
+    // Função para verificar se há solicitação pendente para o email do usuário
+    const checkPromotionPending = async (email: string) => {
+      try {
+        console.log("[DEBUG] Chamando endpoint para listar solicitações...");
+        const response = await fetch(`${API_BASE_URL}/auth/solicitacoes-promocao`);
+        const solicitacoes = await response.json();
+        console.log("[DEBUG] Solicitações recebidas:", solicitacoes);
+        const pending = solicitacoes.some((sol: any) => sol.email === email && sol.status === "pendente");
+        console.log("[DEBUG] Existe solicitação pendente?:", pending);
+        setPromotionPending(pending);
+      } catch (error) {
+        console.error("[ERROR] Erro ao buscar solicitações de promoção:", error);
+        Alert.alert("Erro", "Não foi possível verificar o status da promoção.");
+      }
+    };
+  
+    // Sempre que o modal de promoção for aberto, busca o perfil e checa o status da promoção.
+    useEffect(() => {
+      if (showModalPromocao) {
+        (async () => {
+          const usuarioId = await AsyncStorage.getItem("usuarioId");
+          if (usuarioId) {
+            await fetchUserProfile(usuarioId);
+          } else {
+            console.log("[DEBUG] ID do usuário não encontrado no AsyncStorage.");
+          }
+        })();
+      }
+    }, [showModalPromocao]);
+  
+    // Sempre que o perfil é carregado, verifica se há uma solicitação pendente.
+    useEffect(() => {
+      if (userProfile && userProfile.email) {
+        checkPromotionPending(userProfile.email);
+      }
+    }, [userProfile]);
+  
+    // Função para solicitar promoção usando os dados do perfil
+    const handleSolicitarPromocao = async () => {
+      try {
+        console.log("[DEBUG] Iniciando solicitação de promoção...");
+  
+        // Recupera o ID do usuário
+        const usuarioId = await AsyncStorage.getItem("usuarioId");
+  
+        if (!usuarioId) {
+          Alert.alert("Erro", "ID do usuário não encontrado.");
+          return;
+        }
+  
+        // Garante que o perfil já foi carregado (se não, busca novamente)
+        if (!userProfile) {
+          await fetchUserProfile(usuarioId);
+          if (!userProfile) {
+            Alert.alert("Erro", "Não foi possível recuperar os dados do perfil.");
+            return;
+          }
+        }
+  
+        // Usa os dados do perfil para montar o payload
+        const { email, tipo_de_usuario } = userProfile!;
+        console.log("[DEBUG] Perfil para promoção:", { email, tipo_de_usuario });
+        
+        const normalizedTipo = tipo_de_usuario.toUpperCase();
+        if (normalizedTipo !== "USER" && normalizedTipo !== "MENTOR") {
+          Alert.alert("Erro", "Você já está no nível máximo (ADMIN) ou o tipo está inválido.");
+          return;
+        }
+  
+        const payload = { email, tipo_de_usuario: normalizedTipo };
+        console.log("[DEBUG] Payload para solicitação:", payload);
+        console.log("[DEBUG] Endpoint:", `${API_BASE_URL}/auth/solicitar-promocao`);
+  
+        const response = await fetch(`${API_BASE_URL}/auth/solicitar-promocao`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        console.log("[DEBUG] Resposta da requisição:", response);
+  
+        const data = await response.json();
+        console.log("[DEBUG] Dados da resposta:", data);
+  
+        if (response.ok) {
+          ToastAndroid.show("Promoção solicitada com sucesso!", ToastAndroid.SHORT);
+          console.log("[DEBUG] Promoção solicitada com sucesso.");
+          setPromotionPending(true);
+        } else {
+          Alert.alert("Erro", data.message || "Erro ao solicitar promoção.");
+        }
+      } catch (error) {
+        console.error("[ERROR] Erro na solicitação de promoção:", error);
+        Alert.alert("Erro", "Erro inesperado ao solicitar promoção.");
+      }
+    };
+  
   const handleLogout = async () => {
     try {
-      await AsyncStorage.clear();
-      console.log("Usuário deslogado!");
+      const usuarioId = await AsyncStorage.getItem("usuarioId");
+  
+      if (!usuarioId) {
+        console.warn("ID do usuário não encontrado!");
+        return;
+      } else {
+        console.log("Usuário que vai sair:", usuarioId);
+  
+        const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ usuarioId }), // Envia o ID no corpo
+        });
+  
+        const data = await response.json();
+        console.log("Resposta do Logout:", data);
+  
+        if (!response.ok) {
+          console.error("Erro no logout:", data.message);
+          Alert.alert("Erro", data.message || "Erro ao sair.");
+          return;
+        }
+  
+        console.log("Logout feito com sucesso:", data.message);
+      }
+  
+      // Após a requisição, limpar os dados de autenticação
+      await AsyncStorage.multiRemove(["usuarioId", "userType"]);
+  
+      // Redirecionar para a tela de login
       navigation.reset({
         index: 0,
         routes: [{ name: "LoginRegister" }],
       });
     } catch (error) {
       console.error("Erro ao fazer logout:", error);
+      Alert.alert("Erro", "Erro inesperado ao sair.");
     }
   };
- 
+  
+
   return (
     <Modal
       isVisible={isVisible}
@@ -64,18 +216,14 @@ const SettingsScreenMentor: React.FC<SettingsModalProps> = ({ isVisible, onClose
           <Text style={styles.optionText}>Disponibilidade para Mentorias</Text>
         </TouchableOpacity>
 
-        {/* Opção: Configurar Preço da Sessão */}
-        <TouchableOpacity
-          style={styles.option}
-          onPress={() => {
-           
-            onClose();
-          }}
-        >
-          <Ionicons name="cash" size={24} color="#2979FF" />
-          <Text style={styles.optionText}>Configurar Preço da Sessão</Text>
-        </TouchableOpacity>
-
+        {/* Opção: Promoção para admin */}
+              <TouchableOpacity
+                style={styles.option}
+                onPress={() => setShowModalPromocao(true)}
+              >
+                <Ionicons name="trending-up" size={24} color="#2979FF" />
+                <Text style={styles.optionText}>Promoção</Text>
+              </TouchableOpacity>
         {/* Outras opções padrão */}
         <TouchableOpacity
           style={styles.option}
@@ -184,6 +332,43 @@ const SettingsScreenMentor: React.FC<SettingsModalProps> = ({ isVisible, onClose
               onPress={handleLogout}
             >
               <Text style={styles.confirmText}>Sair</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+          <Modal
+        isVisible={showModalPromocao}
+        onBackdropPress={() => setShowModalPromocao(false)}
+        onBackButtonPress={() => setShowModalPromocao(false)}
+        animationIn="fadeIn"
+        animationOut="fadeOut"
+        backdropOpacity={0.5}
+      >
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Solicitar Promoção para Admintrador</Text>
+          <Text style={styles.modalText}>
+  Ao se tornar Admin, você poderá gerenciar usuários, conteúdos e configurações
+   da plataforma. Não poderá mais orientar outros usuários e receber solicitações 
+   de mentoria como outros mentores.</Text>
+
+      
+          <View style={styles.modalButtons}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setShowModalPromocao(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancelar</Text>
+            </TouchableOpacity>
+      
+            <TouchableOpacity
+              style={styles.confirmButton}
+              onPress={async () => {
+                await handleSolicitarPromocao();
+                setShowModalPromocao(false);
+                onClose();
+              }}
+            >
+              <Text style={styles.confirmButtonText}>Confirmar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -311,6 +496,45 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "white",
     fontWeight: "bold",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 20,
+    width: "80%",
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 10,
+    color: "#2979FF",
+  },
+  modalText: {
+    fontSize: 16,
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  
+  cancelButtonText: {
+    textAlign: "center",
+    color: "#000",
+  },
+ 
+  confirmButtonText: {
+    textAlign: "center",
+    color: "#fff",
   },
 });
 

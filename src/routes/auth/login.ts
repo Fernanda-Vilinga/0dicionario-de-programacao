@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import bcrypt from "bcrypt";
 import db from "../../firebaseConfig";
+import admin from "firebase-admin"; // ✅ Import necessário
 
 export default async function loginRoutes(app: FastifyInstance) {
   app.post("/auth/login", async (req, reply) => {
@@ -18,10 +19,9 @@ export default async function loginRoutes(app: FastifyInstance) {
         return reply.status(404).send({ message: "Usuário não encontrado." });
       }
 
-      const userDoc = user.docs[0]; // Pegando o documento do usuário
+      const userDoc = user.docs[0];
       const userData = userDoc.data();
-
-      console.log("🔍 Usuário encontrado:", userData);
+      const usuarioId = userDoc.id;
 
       if (!userData.senha) {
         return reply.status(500).send({ message: "Erro no servidor: senha não encontrada." });
@@ -33,23 +33,24 @@ export default async function loginRoutes(app: FastifyInstance) {
         return reply.status(401).send({ message: "Senha incorreta." });
       }
 
-      const usuarioId = userDoc.id; // Pegando o ID do usuário
-
       const token = app.jwt.sign({ id: usuarioId });
 
-      // Normalizando tipo de usuário
       const userType =
         typeof userData.tipo_de_usuario === "string" && userData.tipo_de_usuario.trim() !== ""
           ? userData.tipo_de_usuario.trim().toUpperCase()
           : "USUARIO";
 
-      console.log("✅ Login bem-sucedido:", { nome: userData.nome, usuarioId, userType });
-
+      // ✅ Corrigido o nome do ID do usuário e o uso do admin
+      await db.collection('usuarios').doc(usuarioId).update({
+        lastLogin: admin.firestore.Timestamp.now(),
+        online: true
+      });
+      
       return reply.send({
         message: "Login bem-sucedido",
         nome: userData.nome,
         token,
-        usuarioId, // Agora o ID do usuário será retornado
+        usuarioId,
         userType,
       });
     } catch (error) {

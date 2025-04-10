@@ -1,6 +1,5 @@
-// Contacts.tsx
-import React from 'react';
-import { FlatList, TouchableOpacity, Image, Text, Alert } from 'react-native';
+import React, { useContext } from 'react';
+import { FlatList, TouchableOpacity, Image, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import useStyles from './StylesChat';
 import { ThemeContext } from 'src/context/ThemeContext';
@@ -18,18 +17,13 @@ interface ContactsProps {
   onOpenProfile: (contactId: string) => void;
 }
 
-const Contacts: React.FC<ContactsProps> = ({
-  contacts,
-  loading,
-  onSelectContact,
-  onOpenProfile,
-}) => {
-  const styles = useStyles();
-  const { theme } = React.useContext(ThemeContext);
+const Contacts: React.FC<ContactsProps> = ({ contacts, loading, onSelectContact, onOpenProfile }) => {
+  const { theme } = useContext(ThemeContext);
+  const styles = useStyles(); // Se o hook useStyles não for dinâmico, você pode passar o tema ou sobrescrever com inline styles
 
   const renderItem = ({ item }: { item: Contact }) => (
     <TouchableOpacity
-      style={styles.contactItem}
+      style={[styles.contactItem, { backgroundColor: theme.cardBackground }]}
       onPress={() => onSelectContact(item)}
     >
       {item.profileImage ? (
@@ -49,7 +43,7 @@ const Contacts: React.FC<ContactsProps> = ({
       data={contacts}
       keyExtractor={(item) => item.id}
       renderItem={renderItem}
-      contentContainerStyle={styles.contactsList}
+      contentContainerStyle={[styles.contactsList, { backgroundColor: theme.backgroundColor }]}
     />
   );
 };

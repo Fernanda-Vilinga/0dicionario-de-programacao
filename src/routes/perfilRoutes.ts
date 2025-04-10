@@ -1,6 +1,20 @@
 import { FastifyInstance } from 'fastify';
 import db from '../firebaseConfig';
 
+// Função auxiliar para registrar atividade
+async function registrarAtividade(userId: string, descricao: string, acao: string) {
+  try {
+    await db.collection('atividades').add({
+      userId,
+      description: descricao,
+      action: acao,
+      createdAt: new Date(), // Usamos a data atual
+    });
+  } catch (error) {
+    console.error('Erro ao registrar atividade:', error);
+  }
+}
+
 export default async function profileRoutes(app: FastifyInstance) {
   // Rota para obter o perfil de um usuário específico
   app.get('/perfil/:id', async (req, reply) => {
@@ -54,6 +68,13 @@ export default async function profileRoutes(app: FastifyInstance) {
       // Realiza a atualização
       await userRef.update(updateData);
 
+      // Registra a atividade no Firestore
+      const nomeParaRegistro = nome || userData?.nome || 'Usuário';
+      const descricao = `${nomeParaRegistro} atualizou seu perfil`;
+      const acao = "Atualizar perfil";
+      await registrarAtividade(id, descricao, acao);
+
+      console.log("Perfil atualizado e atividade registrada.");
       return reply.send({ message: 'Perfil atualizado com sucesso' });
     } catch (error) {
       return reply.status(500).send({ message: 'Erro ao atualizar perfil', error });

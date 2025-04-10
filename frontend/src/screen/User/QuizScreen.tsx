@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState,useContext } from 'react';
 import {
   View,
   Text,
@@ -14,8 +14,9 @@ import API_BASE_URL from 'src/config';
 import HeaderComum from '../HeaderComum';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { ThemeContext } from 'src/context/ThemeContext';
 type MaterialIconName = "code" | "cached" | "developer-mode" | "storage" | "cloud";
+
 
 interface Category {
   name: string;
@@ -41,8 +42,8 @@ const QuizScreen: React.FC = () => {
   // Para este exemplo, usaremos um usuário fixo.
   // Na prática, obtenha esse valor do contexto de autenticação ou AsyncStorage.
   const usuarioId = "user123";
-
-  const [mode, setMode] = useState<'menu' | 'quiz' | 'result'>('menu');
+  const { theme } = useContext(ThemeContext); // Obtém o tema atual
+  const [mode, setMode] = useState<'menu' | 'quiz' | 'result' | 'achievements'>('menu');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -50,6 +51,11 @@ const QuizScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [score, setScore] = useState<number | null>(null);
   const [showQuitModal, setShowQuitModal] = useState(false);
+  const [badges, setBadges] = useState<string[]>([]);
+  const [categoriesCompleted, setCategoriesCompleted] = useState<Set<string>>(new Set());
+  const [lastQuizDate, setLastQuizDate] = useState<string | null>(null);
+  const [allCorrect, setAllCorrect] = useState(true);
+  const [newBadges, setNewBadges] = useState<string[]>([]);
 
   // Estado dinâmico para os status dos quizzes (persistente, atrelado ao usuário)
   const [quizStatus, setQuizStatus] = useState<{ [key: string]: "completed" | "inProgress" | "notStarted" }>({
@@ -69,6 +75,74 @@ const QuizScreen: React.FC = () => {
     { name: "Desenvolvimento de Jogos", icon: "cached" },
     { name: "Programação de Sistemas", icon: "code" },
   ];
+
+  // Carregar badges do AsyncStorage
+  useEffect(() => {
+    const loadBadges = async () => {
+      try {
+        const storedBadges = await AsyncStorage.getItem('badges');
+        if (storedBadges) {
+          setBadges(JSON.parse(storedBadges));
+        }
+      } catch (error) {
+        console.error('Erro ao carregar badges:', error);
+      }
+    };
+    loadBadges();
+  }, []);
+
+  // Persistir badges no AsyncStorage
+  useEffect(() => {
+    const saveBadges = async () => {
+      try {
+        await AsyncStorage.setItem('badges', JSON.stringify(badges));
+      } catch (error) {
+        console.error('Erro ao salvar badges:', error);
+      }
+    };
+    saveBadges();
+  }, [badges]);
+  useEffect(() => {
+    const loadLastQuizDate = async () => {
+      try {
+        const storedDate = await AsyncStorage.getItem(`lastQuizDate_${usuarioId}`);
+        if (storedDate) {
+          setLastQuizDate(storedDate);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar a data do último quiz:', error);
+      }
+    };
+    loadLastQuizDate();
+  }, [usuarioId]);
+
+  // Carregar categorias completadas do AsyncStorage
+  useEffect(() => {
+    const loadCategoriesCompleted = async () => {
+      try {
+        const storedCategories = await AsyncStorage.getItem(`categoriesCompleted_${usuarioId}`);
+        if (storedCategories) {
+          setCategoriesCompleted(new Set(JSON.parse(storedCategories)));
+        }
+      } catch (error) {
+        console.error('Erro ao carregar categorias completadas:', error);
+      }
+    };
+    loadCategoriesCompleted();
+  }, [usuarioId]);
+
+  // Persistir categorias completadas no AsyncStorage
+  useEffect(() => {
+    const saveCategoriesCompleted = async () => {
+      try {
+        await AsyncStorage.setItem(`categoriesCompleted_${usuarioId}`, JSON.stringify(Array.from(categoriesCompleted)));
+      } catch (error) {
+        console.error('Erro ao salvar categorias completadas:', error);
+      }
+    };
+    saveCategoriesCompleted();
+  }, [categoriesCompleted, usuarioId]);
+
 
   // Carrega o estado persistido (local) – opcional para o quizStatus local
   useEffect(() => {
@@ -176,6 +250,8 @@ const QuizScreen: React.FC = () => {
       // Se o progresso salvo estiver fora do intervalo, reinicia o índice
       setCurrentQuestionIndex(0);
       setResponses([]);
+      setAllCorrect(true); // Resetar o estado para cada novo quiz
+      setNewBadges([]);
     } catch (error) {
       Alert.alert('Erro', 'Falha ao carregar as perguntas.');
     } finally {
@@ -191,26 +267,30 @@ const QuizScreen: React.FC = () => {
     loadQuizProgress(categoria);
     setMode('quiz');
   };
-
   const handleSelectAnswer = (selectedIndex: number) => {
     const currentQuestion = questions[currentQuestionIndex];
-    if (selectedIndex === currentQuestion.respostaCorreta) {
-      const resposta: RespostaQuiz = {
-        idPergunta: currentQuestion.id,
-        respostaDada: currentQuestion.opcoes[selectedIndex],
-        correta: true,
-      };
-      setResponses(prev => [...prev, resposta]);
-      if (currentQuestionIndex < questions.length - 1) {
-        setCurrentQuestionIndex(prevIndex => prevIndex + 1);
-      } else {
-        submitQuiz();
-      }
-    } else {
-      Alert.alert('Resposta incorreta', 'Tente novamente.');
-    }
-  };
-
+    const isCorrect = selectedIndex === Number(currentQuestion.respostaCorreta);
+  
+    const resposta: RespostaQuiz = {
+      idPergunta: currentQuestion.id,
+      respostaDada: currentQuestion.opcoes[selectedIndex],
+      correta: isCorrect,
+    };
+  
+    setResponses(prev => [...prev, resposta]);
+       // Obtenha a pergunta atual
+        if (!isCorrect) {
+            setAllCorrect(false);
+            Alert.alert('Resposta incorreta', 'Tente novamente.');
+        } else {
+            if (currentQuestionIndex < questions.length - 1) {
+                setCurrentQuestionIndex(prevIndex => prevIndex + 1);
+            } else {
+                submitQuiz(); // Envia o quiz após a última resposta correta
+            }
+        }
+    };
+  
   const submitQuiz = async () => {
     const payload = {
       usuarioId,
@@ -223,16 +303,48 @@ const QuizScreen: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const data = await response.json();
+    const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Erro ao enviar respostas');
-      setScore(data.score);
-      updateQuizStatusLocal(selectedCategory, "completed");
-      // Atualiza o progresso para "completed" e espera a atualização
-      await updateQuizProgress();
-      setMode('result');
-    } catch (error) {
-      Alert.alert('Erro', error instanceof Error ? error.message : 'Erro desconhecido');
-    }
+
+  const todasCorretas = responses.every(resposta => resposta.correta) && allCorrect;
+  const isFirstQuiz = badges.length === 0;
+  const isMaratoneiro = quizStatus[selectedCategory] === 'completed';
+  const quizCategories = new Set(questions.map(q => q.categoria));
+  
+
+      const pontuacaoFinal = questions.length;
+
+   
+          setScore(pontuacaoFinal);
+          updateQuizStatusLocal(selectedCategory, "completed");
+          await updateQuizProgress();
+     // Lógica para desbloquear badges
+        const badgesParaDesbloquear: string[] = [];
+
+      if (todasCorretas && !badges.includes('Placar Perfeito')) {
+       badgesParaDesbloquear.push('Placar Perfeito');
+          }
+   
+   if (isFirstQuiz && !badges.includes('Primeira Conquista')) {
+              badgesParaDesbloquear.push('Primeira Conquista');
+          }
+
+     if (badgesParaDesbloquear.length > 0) {
+      const novosBadges = [...badges, ...badgesParaDesbloquear];
+                 await AsyncStorage.setItem('badges', JSON.stringify(novosBadges));
+              setBadges(novosBadges);
+                 setNewBadges(badgesParaDesbloquear);
+          }
+ // Update completed categories
+      if (quizCategories && selectedCategory) {
+        categoriesCompleted.add(selectedCategory);
+      }
+          // Persist updated completed categories
+    await AsyncStorage.setItem(`categoriesCompleted_${usuarioId}`, JSON.stringify(Array.from(categoriesCompleted)));
+    setMode('result');
+   } catch (error) {
+    Alert.alert('Erro', error instanceof Error ? error.message : 'Erro desconhecido');
+      }
   };
 
   // Modal de pausa/quit
@@ -250,20 +362,46 @@ const QuizScreen: React.FC = () => {
 
   if (mode === 'menu') {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
         <HeaderComum screenName="Quiz" />
-        <Text style={styles.title}>Selecione uma Categoria</Text>
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: theme.buttonBackground }]}
+          onPress={() => setMode('achievements')}
+        >
+          <Text style={[styles.buttonText, { color: theme.buttonText }]}>Minhas Conquistas</Text>
+        </TouchableOpacity>
+        <Text style={[styles.title, { color: theme.textColor }]}>Selecione uma Categoria</Text>
         <ScrollView contentContainerStyle={styles.categoriesContainer}>
           {categories.map((categoria) => (
             <TouchableOpacity
               key={categoria.name}
-              style={styles.categoryCard}
+              style={[
+                styles.categoryCard,
+                {
+                  backgroundColor: theme.cardBackground,
+                  borderColor: theme.borderColor,
+                },
+              ]}
               onPress={() => handleSelectCategory(categoria.name)}
             >
-              <MaterialIcons name={categoria.icon} size={40} color="#fff" style={styles.categoryIcon} />
-              <Text style={styles.categoryName}>{categoria.name}</Text>
-              <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(quizStatus[categoria.name]) }]}>
-                <Text style={styles.statusText}>{getStatusText(quizStatus[categoria.name])}</Text>
+              <MaterialIcons
+                name={categoria.icon}
+                size={40}
+                color="#fff"
+                style={styles.categoryIcon}
+              />
+              <Text style={[styles.categoryName, { color: theme.textColor }]}>
+                {categoria.name}
+              </Text>
+              <View
+                style={[
+                  styles.statusIndicator,
+                  { backgroundColor: getStatusColor(quizStatus[categoria.name]) },
+                ]}
+              >
+                <Text style={[styles.statusText, { color: theme.textColor }]}>
+                  {getStatusText(quizStatus[categoria.name])}
+                </Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -273,57 +411,65 @@ const QuizScreen: React.FC = () => {
   }
 
   if (mode === 'quiz') {
-    // Fallback: se não estiver carregando e o array de perguntas estiver vazio, exibe mensagem
     if (!loading && questions.length === 0) {
       return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
           <HeaderComum screenName={`Quiz - ${selectedCategory}`} />
-          <Text style={styles.questionText}>Nenhuma pergunta disponível. Tente recarregar o quiz.</Text>
+          <Text style={[styles.questionText, { color: theme.textColor }]}>
+            Nenhuma pergunta disponível. Tente recarregar o quiz.
+          </Text>
         </View>
       );
     }
 
     const currentQuestion = questions[currentQuestionIndex];
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
         <HeaderComum screenName={`Quiz - ${selectedCategory}`} />
         <View style={styles.quizHeader}>
-          <Text style={styles.questionCounter}>
+          <Text style={[styles.questionCounter, { color: theme.textColor }]}>
             Pergunta {currentQuestionIndex + 1} de {questions.length}
           </Text>
           <TouchableOpacity style={styles.quitButton} onPress={handleQuit}>
-            <Text style={styles.quitButtonText}>Sair</Text>
+            <Text style={[styles.quitButtonText, { color: theme.textColor }]}>Sair</Text>
           </TouchableOpacity>
         </View>
         {loading ? (
-          <ActivityIndicator size="large" />
+          <ActivityIndicator size="large" color={theme.buttonBackground} />
         ) : (
           <View style={styles.quizContainer}>
-            <Text style={styles.questionText}>{currentQuestion.pergunta}</Text>
+            <Text style={[styles.questionText, { color: theme.textColor }]}>
+              {currentQuestion.pergunta}
+            </Text>
             {currentQuestion.opcoes.map((opcao, index) => (
               <TouchableOpacity
                 key={index}
-                style={styles.optionButton}
+                style={[styles.optionButton, { backgroundColor: theme.buttonBackground }]}
                 onPress={() => handleSelectAnswer(index)}
               >
-                <Text style={styles.optionText}>{opcao}</Text>
+                <Text style={[styles.optionText, { color: theme.buttonText }]}>{opcao}</Text>
               </TouchableOpacity>
             ))}
           </View>
         )}
-        <Modal animationType="slide" transparent={true} visible={showQuitModal} onRequestClose={cancelQuit}>
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={showQuitModal}
+          onRequestClose={cancelQuit}
+        >
           <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Parar o Jogo?</Text>
-              <Text style={styles.modalMessage}>
+            <View style={[styles.modalContent, { backgroundColor: theme.cardBackground }]}>
+              <Text style={[styles.modalTitle, { color: theme.textColor }]}>Parar o Jogo?</Text>
+              <Text style={[styles.modalMessage, { color: theme.textColor }]}>
                 Seu progresso será perdido. Tem certeza que deseja sair?
               </Text>
               <View style={styles.modalButtons}>
                 <TouchableOpacity style={styles.modalButton} onPress={confirmQuit}>
-                  <Text style={styles.buttonText}>Sim, Sair</Text>
+                  <Text style={[styles.buttonText, { color: theme.buttonText }]}>Sim, Sair</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.cancelButton} onPress={cancelQuit}>
-                  <Text style={styles.buttonText}>Continuar Jogando</Text>
+                  <Text style={[styles.buttonText, { color: theme.buttonText }]}>Continuar Jogando</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -335,16 +481,59 @@ const QuizScreen: React.FC = () => {
 
   if (mode === 'result') {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
         <HeaderComum screenName="Resultado" />
         <View style={styles.resultContainer}>
-          <Text style={styles.resultText}>
+          <Text style={[styles.resultText, { color: theme.textColor }]}>
             Sua pontuação: {score} de {questions.length}
           </Text>
+          {newBadges.length > 0 && (
+            <View>
+              <Text style={[styles.badgeText, { color: theme.textColor }]}>
+                Parabéns! Você desbloqueou os seguintes badges:
+              </Text>
+              {newBadges.map((badge, index) => (
+                <Text key={index} style={[styles.badgeText, { color: theme.textColor }]}>
+                  - {badge}
+                </Text>
+              ))}
+            </View>
+          )}
           <TouchableOpacity style={styles.backButton} onPress={() => setMode('menu')}>
-            <Text style={styles.backButtonText}>Voltar ao Menu</Text>
+            <Text style={[styles.backButtonText, { color: theme.buttonText }]}>Voltar ao Menu</Text>
           </TouchableOpacity>
         </View>
+      </View>
+    );
+  }
+
+  if (mode === 'achievements') {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
+        <HeaderComum screenName="Minhas Conquistas" />
+        <Text style={[styles.title, { color: theme.textColor }]}>Conquistas</Text>
+        <ScrollView contentContainerStyle={styles.achievementsContainer}>
+          {badges && badges.length > 0 ? (
+            badges.map((badge, index) => (
+              <View key={index} style={styles.achievementItem}>
+                <MaterialIcons
+                  name="military-tech"
+                  size={30}
+                  color="#FFD700"
+                  style={styles.achievementIcon}
+                />
+                <Text style={[styles.achievementText, { color: theme.textColor }]}>{badge}</Text>
+              </View>
+            ))
+          ) : (
+            <Text style={[styles.noAchievementsText, { color: theme.textColor }]}>
+              Nenhuma conquista por enquanto!
+            </Text>
+          )}
+        </ScrollView>
+        <TouchableOpacity style={styles.backButton} onPress={() => setMode('menu')}>
+          <Text style={[styles.backButtonText, { color: theme.buttonText }]}>Voltar</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -398,7 +587,8 @@ const styles = StyleSheet.create({
   optionButton: { backgroundColor: '#E3F2FD', padding: 10, borderRadius: 5, marginVertical: 5 },
   optionText: { fontSize: 16, color: '#333', textAlign: 'center' },
   resultContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  resultText: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
+  resultTitle: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 10 },
+  resultText: { fontSize: 18, textAlign: 'center', marginBottom: 20 },
   backButton: { backgroundColor: '#2979FF', padding: 15, borderRadius: 8 },
   backButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)' },
@@ -408,10 +598,58 @@ const styles = StyleSheet.create({
   modalButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
   modalButton: { backgroundColor: '#2979FF', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 5 },
   cancelButton: { backgroundColor: 'gray', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 5 },
-  pickerContainer: { marginBottom: 10 },
-  label: { fontSize: 16, fontWeight: 'bold', marginBottom: 5 },
-  picker: { height: 50, width: '100%', borderWidth: 1, borderColor: '#ccc' },
-  buttonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
+  achievementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+  },
+  achievementIcon: {
+    marginRight: 15,
+    color: '#FFD700', // Cor dourada para o ícone
+  },
+  achievementText: {
+    fontSize: 16,
+  },
+  achievementsContainer: {
+    flexGrow: 1,
+    padding: 10,
+  },
+  noAchievementsText: {
+    fontSize: 16,
+    fontStyle: 'italic',
+    color: 'gray',
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  badgeText: {
+    fontSize: 16,
+    marginTop: 10,
+    color: '#2979FF',
+    fontWeight: 'bold',
+    textAlign: 'center',  
+  } , button: {
+    backgroundColor: '#2979FF', // Azul padrão do app
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3, // Sombra no Android
+    marginBottom: 15,
+    width: '80%',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+
 });
 
 export default QuizScreen;

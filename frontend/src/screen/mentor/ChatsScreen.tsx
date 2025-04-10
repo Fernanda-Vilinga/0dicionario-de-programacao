@@ -54,10 +54,10 @@ const ChatScreen: React.FC = () => {
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [modalProfile, setModalProfile] = useState<UserProfile | null>(null);
   const [modalLoading, setModalLoading] = useState<boolean>(false);
-  // Modal do áudio
+  // Modal do Ã¡udio
   const [audioModalVisible, setAudioModalVisible] = useState<boolean>(false);
 
-  // Busca dados do usuário
+  // Busca dados do usuÃ¡rio
   useEffect(() => {
     const getUserData = async () => {
       try {
@@ -66,7 +66,7 @@ const ChatScreen: React.FC = () => {
         if (storedUserId) {
           setUserId(storedUserId);
         } else {
-          Alert.alert('Erro', 'ID do usuário não encontrado.');
+          Alert.alert('Erro', 'ID do usuÃ¡rio nÃ£o encontrado.');
         }
         if (storedTipo) {
           setTipoDeUsuario(storedTipo.toUpperCase());
@@ -74,7 +74,7 @@ const ChatScreen: React.FC = () => {
           setTipoDeUsuario('MENTOR');
         }
       } catch (error) {
-        Alert.alert('Erro', 'Não foi possível recuperar os dados do usuário.');
+        Alert.alert('Erro', 'NÃ£o foi possÃ­vel recuperar os dados do usuÃ¡rio.');
       }
     };
     getUserData();
@@ -101,7 +101,7 @@ const ChatScreen: React.FC = () => {
           Alert.alert('Erro', data.message || 'Erro ao buscar contatos.');
         }
       } catch (error) {
-        Alert.alert('Erro', 'Não foi possível buscar os contatos.');
+        Alert.alert('Erro', 'NÃ£o foi possÃ­vel buscar os contatos.');
       } finally {
         setLoadingContacts(false);
       }
@@ -109,7 +109,7 @@ const ChatScreen: React.FC = () => {
     fetchContacts();
   }, [userId]);
 
-  // Verifica se há mentoria ativa entre usuário e contato
+  // Verifica se hÃ¡ mentoria ativa entre usuÃ¡rio e contato
   const checkMentoria = async (contactId: string): Promise<string | null> => {
     try {
       let usuarioIdToSend: string | null = null;
@@ -121,7 +121,7 @@ const ChatScreen: React.FC = () => {
         usuarioIdToSend = userId;
         mentorIdToSend = contactId;
       } else {
-        Alert.alert('Erro', 'Tipo de usuário não definido corretamente.');
+        Alert.alert('Erro', 'Tipo de usuÃ¡rio nÃ£o definido corretamente.');
         return null;
       }
       let response = await fetch(`${API_BASE_URL}/mentoria/verificar`, {
@@ -133,7 +133,7 @@ const ChatScreen: React.FC = () => {
       if (response.ok && data.sessaoId) {
         return data.sessaoId;
       }
-      // Tenta a inversão se necessário
+      // Tenta a inversÃ£o se necessÃ¡rio
       response = await fetch(`${API_BASE_URL}/mentoria/verificar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -143,13 +143,15 @@ const ChatScreen: React.FC = () => {
       if (response.ok && data.sessaoId) {
         return data.sessaoId;
       }
-      Alert.alert('Atenção', data.message || 'Nenhuma mentoria ativa com esse contato.');
+      Alert.alert('AtenÃ§Ã£o', data.message || 'Nenhuma mentoria ativa com esse contato.');
       return null;
     } catch (error) {
-      Alert.alert('Erro', 'Não foi possível verificar a mentoria.');
+      Alert.alert('Erro', 'NÃ£o foi possÃ­vel verificar a mentoria.');
       return null;
     }
-  }; // Ao selecionar um contato, verifica a mentoria e define o contato selecionado (ou exibe alerta)
+  };
+
+  // Ao selecionar um contato, verifica a mentoria e define o contato selecionado (ou exibe alerta)
   const onSelectContact = async (contact: Contact) => {
     try {
       const sessao = await checkMentoria(contact.id);
@@ -158,11 +160,11 @@ const ChatScreen: React.FC = () => {
         setSelectedContact(contact);
       } else {
         setTimeout(() => {
-          Alert.alert('Erro', 'Não há uma sessão de mentoria ativa com este contato.');
+          Alert.alert('Erro', 'NÃ£o hÃ¡ uma sessÃ£o de mentoria ativa com este contato.');
         }, 0);
       }
     } catch (error) {
-      Alert.alert('Erro', 'Ocorreu um erro ao verificar a sessão de mentoria.');
+      Alert.alert('Erro', 'Ocorreu um erro ao verificar a sessÃ£o de mentoria.');
     }
   };
 
@@ -186,13 +188,13 @@ const ChatScreen: React.FC = () => {
         Alert.alert('Erro', data.message || 'Erro ao buscar mensagens.');
       }
     } catch (error) {
-      Alert.alert('Erro', 'Não foi possível buscar as mensagens.');
+      Alert.alert('Erro', 'NÃ£o foi possÃ­vel buscar as mensagens.');
     } finally {
       setLoadingMessages(false);
     }
   };
 
-  // Atualiza as mensagens quando há um contato selecionado e sessão ativa
+  // Atualiza as mensagens quando hÃ¡ um contato selecionado e sessÃ£o ativa
   useEffect(() => {
     if (selectedContact && sessionId) {
       fetchMessages();
@@ -216,11 +218,11 @@ const ChatScreen: React.FC = () => {
         Alert.alert('Erro', data.message || 'Erro ao enviar mensagem.');
       }
     } catch (error) {
-      Alert.alert('Erro', 'Não foi possível enviar a mensagem.');
+      Alert.alert('Erro', 'NÃ£o foi possÃ­vel enviar a mensagem.');
     }
   };
 
-  // Envia mensagem de áudio
+  // Envia mensagem de Ã¡udio
   const sendAudioMessage = async (uri: string) => {
     if (!userId || !sessionId) return;
     try {
@@ -231,18 +233,20 @@ const ChatScreen: React.FC = () => {
       });
       const data = await response.json();
       if (response.ok) {
-        Alert.alert('Sucesso', 'Áudio enviado com sucesso.');
+        Alert.alert('Sucesso', 'Ãudio enviado com sucesso.');
         fetchMessages();
       } else {
-        Alert.alert('Erro', data.message || 'Erro ao enviar áudio.');
+        Alert.alert('Erro', data.message || 'Erro ao enviar Ã¡udio.');
       }
     } catch (error) {
-      Alert.alert('Erro', 'Falha ao enviar áudio.');
+      Alert.alert('Erro', 'Falha ao enviar Ã¡udio.');
     }
-  }; // Inicia a chamada (ex: via Jitsi)
+  };
+
+  // Inicia a chamada (ex: via Jitsi)
   const iniciarChamada = async () => {
     if (!sessionId) {
-      Alert.alert('Erro', 'Nenhuma sessão ativa encontrada.');
+      Alert.alert('Erro', 'Nenhuma sessÃ£o ativa encontrada.');
       return;
     }
     const url = `https://meet.jit.si/${sessionId}`;
@@ -263,7 +267,7 @@ const ChatScreen: React.FC = () => {
         setModalVisible(false);
       }
     } catch (error) {
-      Alert.alert('Erro', 'Não foi possível buscar o perfil.');
+      Alert.alert('Erro', 'NÃ£o foi possÃ­vel buscar o perfil.');
       setModalVisible(false);
     } finally {
       setModalLoading(false);
@@ -292,7 +296,7 @@ const ChatScreen: React.FC = () => {
             )}
           </>
         ) : (
-          // Se houver contato selecionado e sessão ativa, renderiza o ChatArea
+          // Se houver contato selecionado e sessÃ£o ativa, renderiza o ChatArea
           <ChatArea
             selectedContact={selectedContact}
             sessionId={sessionId!}
@@ -304,7 +308,7 @@ const ChatScreen: React.FC = () => {
             sendAudioMessage={sendAudioMessage}
             iniciarChamada={iniciarChamada}
             voltarParaContatos={() => setSelectedContact(null)}
-            openAudioModal={() => setAudioModalVisible(true)}  // <-- Nova prop para abrir o modal de áudio
+            openAudioModal={() => setAudioModalVisible(true)}  // <-- Nova prop para abrir o modal de Ã¡udio
             abrirModalPerfil={(contactId: string) => openProfileModal(contactId)}
           />
         )}
@@ -329,13 +333,13 @@ const ChatScreen: React.FC = () => {
                   </TouchableOpacity>
                 </ScrollView>
               ) : (
-                <Text style={{ color: theme.textColor }}>Perfil não disponível.</Text>
+                <Text style={{ color: theme.textColor }}>Perfil nÃ£o disponÃ­vel.</Text>
               )}
             </View>
           </View>
         </Modal>
 
-        {/* Modal para gravação de áudio */}
+        {/* Modal para gravaÃ§Ã£o de Ã¡udio */}
         <AudioRecorderModal
           isVisible={audioModalVisible}
           onClose={() => setAudioModalVisible(false)}
@@ -348,4 +352,4 @@ const ChatScreen: React.FC = () => {
   );
 };
 
-export default ChatScreen;
+export default ChatScreen; 

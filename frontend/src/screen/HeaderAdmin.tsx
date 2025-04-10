@@ -5,7 +5,7 @@ import {
   StyleSheet, 
   TouchableOpacity, 
   Image, 
-  StatusBar, 
+  StatusBar, Alert,
   Platform 
 } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
@@ -59,19 +59,53 @@ const HeaderAdmin: React.FC<HeaderProps> = ({ screenName, onOpenSettings }) => {
     fetchUserProfile();
   }, []);
 
+   
   const handleLogout = async () => {
     try {
-      await AsyncStorage.clear();
-      console.log("Usuário deslogado!");
+      const usuarioId = await AsyncStorage.getItem("usuarioId");
+  
+      if (!usuarioId) {
+        console.warn("ID do usuário não encontrado!");
+        return;
+      } else {
+        console.log("Usuário que vai sair:", usuarioId);
+  
+        const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ usuarioId }), // Envia o ID no corpo
+        });
+  
+        const data = await response.json();
+        console.log("Resposta do Logout:", data);
+  
+        if (!response.ok) {
+          console.error("Erro no logout:", data.message);
+          Alert.alert("Erro", data.message || "Erro ao sair.");
+          return;
+        }
+  
+        console.log("Logout feito com sucesso:", data.message);
+      }
+  
+      // Após a requisição, limpar os dados de autenticação
+      await AsyncStorage.multiRemove(["usuarioId", "userType"]);
+  
+      // Redirecionar para a tela de login
       navigation.reset({
         index: 0,
         routes: [{ name: "LoginRegister" }],
       });
     } catch (error) {
       console.error("Erro ao fazer logout:", error);
+      Alert.alert("Erro", "Erro inesperado ao sair.");
     }
   };
+  
 
+  
   return (
     <View style={styles.container}>
       {/* Ícone da App à esquerda */}

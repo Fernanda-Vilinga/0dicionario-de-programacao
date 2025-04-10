@@ -5,7 +5,7 @@ import UsersScreen from './UsersScreenAdmin';
 import GerenciarDicionario from './DicionayScreenAdmin';
 import GerenciarQuizzes from './QuizzesScreenAdmin';
 import GerenciarMentoria from './MentorShipScreenAdmin';
-import Configuracoes from './SettingsScreenAdmin';
+import SettingsScreen from '../User/SettingsScreen';
 import AdminDashboardScreen from './AdminHome';
 import SugestoesScreen from './SugestoesScreen';
 
@@ -57,7 +57,7 @@ const AdminNavigator = () => {
       <Tab.Screen name="Quizzes" component={GerenciarQuizzes} />
       <Tab.Screen name="Mentoria" component={GerenciarMentoria} />
       <Tab.Screen name="Sugestões" component={SugestoesScreen} />
-      <Tab.Screen name="Configurações" component={Configuracoes} />
+      <Tab.Screen name="Configurações" component={SettingsScreen} />
     </Tab.Navigator>
   );
 };

@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = loginRoutes;
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const firebaseConfig_1 = __importDefault(require("../../firebaseConfig"));
+const firebase_admin_1 = __importDefault(require("firebase-admin")); // ✅ Import necessário
 function loginRoutes(app) {
     return __awaiter(this, void 0, void 0, function* () {
         app.post("/auth/login", (req, reply) => __awaiter(this, void 0, void 0, function* () {
@@ -28,9 +29,9 @@ function loginRoutes(app) {
                 if (user.empty) {
                     return reply.status(404).send({ message: "Usuário não encontrado." });
                 }
-                const userDoc = user.docs[0]; // Pegando o documento do usuário
+                const userDoc = user.docs[0];
                 const userData = userDoc.data();
-                console.log("🔍 Usuário encontrado:", userData);
+                const usuarioId = userDoc.id;
                 if (!userData.senha) {
                     return reply.status(500).send({ message: "Erro no servidor: senha não encontrada." });
                 }
@@ -38,18 +39,20 @@ function loginRoutes(app) {
                 if (!match) {
                     return reply.status(401).send({ message: "Senha incorreta." });
                 }
-                const usuarioId = userDoc.id; // Pegando o ID do usuário
                 const token = app.jwt.sign({ id: usuarioId });
-                // Normalizando tipo de usuário
                 const userType = typeof userData.tipo_de_usuario === "string" && userData.tipo_de_usuario.trim() !== ""
                     ? userData.tipo_de_usuario.trim().toUpperCase()
                     : "USUARIO";
-                console.log("✅ Login bem-sucedido:", { nome: userData.nome, usuarioId, userType });
+                // ✅ Corrigido o nome do ID do usuário e o uso do admin
+                yield firebaseConfig_1.default.collection('usuarios').doc(usuarioId).update({
+                    lastLogin: firebase_admin_1.default.firestore.Timestamp.now(),
+                    online: true
+                });
                 return reply.send({
                     message: "Login bem-sucedido",
                     nome: userData.nome,
                     token,
-                    usuarioId, // Agora o ID do usuário será retornado
+                    usuarioId,
                     userType,
                 });
             }

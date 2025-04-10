@@ -1,135 +1,219 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, Button, Alert } from 'react-native';
-import HeaderComum from '../HeaderComum';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, FlatList } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import API_BASE_URL from 'src/config';
+import Header from '../HeaderComum';
+const categorias = [
+  'Dicionário',
+  'Quiz',
+  'Bloco de Notas',
+  'Mentoria',
+  'Técnico',
+];
 
-// ✅ Definição do tipo para uma sugestão
-type Sugestao = {
-  id: string;
-  termo: string;
-  definicao: string;
-};
+const SugestaoScreen = () => {
+  const [categoria, setCategoria] = useState('');
+  const [descricao, setDescricao] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [usuarioId, setUsuarioId] = useState('');
+  const [sugestoes, setSugestoes] = useState([]);
 
-const API_URL = 'http://192.168.0.132:3030/sugestoes'; // Atualize conforme necessário
+  useEffect(() => {
+    const obterUsuarioId = async () => {
+      const id = await AsyncStorage.getItem('usuarioId');
+      if (id) {
+        setUsuarioId(id);
+        console.log('Usuário logado:', id);
+        buscarSugestoes(id);
+      } else {
+        Alert.alert('Erro', 'Usuário não autenticado.');
+      }
+    };
 
-const SugestoesScreen: React.FC = () => {
-  const [sugestao, setSugestao] = useState<string>('');
-  const [sugestoes, setSugestoes] = useState<Sugestao[]>([]);
+    obterUsuarioId();
+  }, []);
 
-  // 🔥 Buscar sugestões do backend
-  const fetchSugestoes = async () => {
+  const handleEnviar = async () => {
+    if (!categoria || !descricao) {
+      return Alert.alert('Atenção', 'Preencha todos os campos!');
+    }
+
     try {
-      const response = await fetch(API_URL);
-      if (!response.ok) throw new Error('Erro ao buscar sugestões.');
-      const data: Sugestao[] = await response.json();
-      setSugestoes(data);
+      setLoading(true);
+
+      const payload = {
+        usuarioId,
+        categoria,
+        descricao,
+        status: 'pendente',
+      };
+
+      console.log('Enviando sugestão:', payload);
+
+      await axios.post(`${API_BASE_URL}/sugestoes`, payload, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      setCategoria('');
+      setDescricao('');
+      Alert.alert('Sucesso', 'Sugestão enviada com sucesso!');
+      buscarSugestoes(usuarioId); // Atualiza lista
     } catch (error) {
-      console.error(error);
-      Alert.alert('Erro', 'Não foi possível carregar as sugestões.');
+      console.error('Erro ao enviar sugestão:', error);
+      Alert.alert('Erro', 'Não foi possível enviar a sugestão.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // 🔥 Chamar a API ao abrir a tela
-  useEffect(() => {
-    fetchSugestoes();
-  }, []);
-
-  // 🔥 Enviar sugestão ao backend
-  const enviarSugestao = async () => {
-    if (!sugestao.trim()) {
-      Alert.alert('Aviso', 'Digite uma sugestão antes de enviar.');
-      return;
-    }
-
+  const buscarSugestoes = async (id: string) => {
     try {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          usuarioId: '123456', // Substituir pelo ID real do usuário autenticado
-          sugestao,
-        }),
-      });
-
-      if (!response.ok) throw new Error('Erro ao enviar sugestão.');
-
-      Alert.alert('Sucesso', 'Sugestão enviada com sucesso!');
-      setSugestao('');
-      fetchSugestoes(); // Atualiza a lista de sugestões
+      const response = await axios.get(`${API_BASE_URL}/sugestoes`);
+      const todas = response.data;
+      const minhas = todas.filter((s: any) => s.usuarioId === id);
+      setSugestoes(minhas);
     } catch (error) {
-      console.error(error);
-      Alert.alert('Erro', 'Ocorreu um erro ao enviar a sugestão.');
+      console.error('Erro ao buscar sugestões:', error);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <HeaderComum screenName="Sugestões" />
-      <Text style={styles.title}>Contribua para o crescimento da nossa App</Text>
-
-      {/* Campo de entrada para a sugestão */}
-      <TextInput
-        style={styles.input}
-        placeholder="Digite sua sugestão..."
-        value={sugestao}
-        onChangeText={setSugestao}
-      />
-
-      {/* Botão para enviar a sugestão */}
-      <Button title="Enviar Sugestão" onPress={enviarSugestao} color="#004AAD" />
-
-      <ScrollView style={styles.suggestionsContainer}>
-        {sugestoes.length > 0 ? (
-          sugestoes.map((item) => (
-            <Text key={item.id} style={styles.suggestion}>
-              {item.termo} - {item.definicao}
-            </Text>
-          ))
-        ) : (
-          <Text style={styles.suggestion}>Nenhuma sugestão ainda...</Text>
-        )}
-      </ScrollView>
-    </View>
-  );
+   
+      <View style={styles.container}>
+            <Header screenName="Sugestões" />
+        <Text style={styles.titulo}>Enviar Sugestão</Text>
+    
+        <Text style={styles.label}>Categoria</Text>
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={categoria}
+            onValueChange={setCategoria}
+            style={styles.picker}
+          >
+            <Picker.Item label="Selecione uma categoria" value="" />
+            {categorias.map((cat, index) => (
+              <Picker.Item key={index} label={cat} value={cat} />
+            ))}
+          </Picker>
+        </View>
+    
+        <Text style={styles.label}>Descrição</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Descreva sua sugestão..."
+          value={descricao}
+          onChangeText={setDescricao}
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+        />
+    
+        <TouchableOpacity style={styles.botao} onPress={handleEnviar} disabled={loading}>
+          <Text style={styles.botaoTexto}>
+            {loading ? 'Enviando...' : 'Enviar Sugestão'}
+          </Text>
+        </TouchableOpacity>
+    
+        {/* Lista de sugestões */}
+        <Text style={[styles.titulo, { marginTop: 30 }]}>Minhas Sugestões</Text>
+    
+        <View style={styles.listaContainer}>
+          <FlatList
+            data={sugestoes}
+            keyExtractor={(item: any) => item.id}
+            renderItem={({ item }: any) => (
+              <View style={styles.sugestaoCard}>
+                <Text style={styles.sugestaoCategoria}>{item.categoria}</Text>
+                <Text style={styles.sugestaoDescricao}>{item.descricao}</Text>
+                <Text style={styles.sugestaoStatus}>Status: {item.status}</Text>
+              </View>
+            )}
+            contentContainerStyle={{ paddingBottom: 100 }}
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
+      </View>
+    );
+    
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     padding: 20,
-    backgroundColor: '#f5f5f5',
+    flex: 1,
+    backgroundColor: '#fff',
   },
-  title: {
-    fontSize: 20,
+  titulo: {
+    fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 15,
+    color: '#2979FF',
+    marginBottom: 20,
     textAlign: 'center',
-    color: 'black',
   },
-  input: {
-    height: 50,
+  label: {
+    fontSize: 16,
+    color: '#333',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  pickerContainer: {
     borderWidth: 1,
     borderColor: '#ccc',
-    borderRadius: 5,
-    paddingHorizontal: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
     marginBottom: 10,
-    backgroundColor: 'white',
   },
-  suggestionsContainer: {
-    marginTop: 15,
+  picker: {
+    height: 50,
+    width: '100%',
   },
-  suggestion: {
+  input: {
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: '#f9f9f9',
+    minHeight: 100,
+  },
+  botao: {
+    backgroundColor: '#2979FF',
+    paddingVertical: 14,
+    borderRadius: 20,
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  botaoTexto: {
+    color: '#fff',
     fontSize: 16,
-    color: '#555',
-    marginBottom: 10,
-    backgroundColor: '#fff',
-    padding: 10,
-    borderRadius: 5,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    fontWeight: 'bold',
   },
+  sugestaoCard: {
+    backgroundColor: '#f1f1f1',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  sugestaoCategoria: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#2979FF',
+  },
+  sugestaoDescricao: {
+    marginTop: 6,
+    fontSize: 14,
+    color: '#333',
+  },
+  sugestaoStatus: {
+    marginTop: 6,
+    fontSize: 13,
+    color: '#666',
+  },listaContainer: {
+    flex: 1,
+    marginTop: 10,
+  },
+  
 });
 
-export default SugestoesScreen;
+export default SugestaoScreen;

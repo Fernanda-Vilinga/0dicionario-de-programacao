@@ -1,98 +1,65 @@
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { FastifyInstance } from 'fastify';
 import db from '../firebaseConfig';
-import axios from 'axios';
 
-// Definição da tipagem do corpo da requisição
-interface SugestaoBody {
-  usuarioId: string;
-  sugestao: string;
-}
+async function suggestsRoutes(app: FastifyInstance) {
+  // 🔹 Enviar sugestão
+  app.post('/sugestoes', async (request, reply) => {
+    const { usuarioId, categoria, descricao, status } = request.body as any;
 
-interface AceitarSugestaoParams {
-  id: string;
-}
-
-// Definição das credenciais da API Hugging Face (use variáveis de ambiente para segurança)
-const HUGGING_FACE_API_URL = 'https://api-inference.huggingface.co/models/seu-modelo-aqui';
-const HUGGING_FACE_API_KEY = 'seu-token-aqui'; // Armazene em variáveis de ambiente!
-
-export default async function suggestionsRoutes(app: FastifyInstance) {
-  // 📌 Rota para obter sugestões da Hugging Face e salvar no Firestore
-  app.post('/sugestoes', async (req: FastifyRequest<{ Body: SugestaoBody }>, reply: FastifyReply) => {
-    const { usuarioId, sugestao } = req.body;
-
-    if (!usuarioId || !sugestao) {
-      return reply.status(400).send({ message: 'Usuário e sugestão são obrigatórios.' });
+    if (!usuarioId || !categoria || !descricao) {
+      return reply.status(400).send({ message: 'Dados inválidos' });
     }
 
     try {
-      // Chamada à API Hugging Face para obter sugestões
-      const response = await axios.post(
-        HUGGING_FACE_API_URL,
-        { inputs: sugestao },
-        {
-          headers: {
-            Authorization: `Bearer ${HUGGING_FACE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const novaSugestao = {
+        usuarioId,
+        categoria,
+        descricao,
+        status: status || 'pendente',
+        data: new Date().toISOString(),
+      };
 
-      const sugestoes = response.data; // Ajuste conforme o retorno da API
+      const docRef = await db.collection('sugestoes').add(novaSugestao);
+      return reply.status(201).send({ message: 'Sugestão recebida', id: docRef.id });
+    } catch (error) {
+      console.error('Erro ao enviar sugestão:', error);
+      return reply.status(500).send({ message: 'Erro no servidor' });
+    }
+  });
 
-      // Salvando sugestões no Firestore
-      const batch = db.batch();
-      sugestoes.forEach((termo: any) => {
-        const ref = db.collection('sugestoes').doc();
-        batch.set(ref, {
-          usuarioId,
-          termo: termo.termo, // Ajuste conforme resposta da API
-          definicao: termo.definicao || '',
-          exemplos: termo.exemplos || [],
-          linguagem: termo.linguagem || 'Geral',
-          dataCriacao: new Date(),
-        });
-      });
-
-      await batch.commit();
-
-      return reply.status(201).send({ message: 'Sugestões enviadas e salvas com sucesso' });
+  // 🔹 Listar sugestões
+  app.get('/sugestoes', async (_, reply) => {
+    try {
+      const snapshot = await db.collection('sugestoes').get();
+      const sugestoes = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      return reply.status(200).send(sugestoes);
     } catch (error) {
       console.error('Erro ao buscar sugestões:', error);
       return reply.status(500).send({ message: 'Erro ao buscar sugestões' });
     }
   });
 
-  // 📌 Rota para aceitar uma sugestão e movê-la para a coleção de termos
-  app.post('/sugestoes/aceitar/:id', async (req: FastifyRequest<{ Params: AceitarSugestaoParams }>, reply: FastifyReply) => {
-    const { id } = req.params;
+  // 🔹 Atualizar status da sugestão
+  app.put('/sugestoes/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { status } = request.body as { status: string };
+
+    if (!status) {
+      return reply.status(400).send({ message: 'Status não informado' });
+    }
 
     try {
-      const sugestaoRef = db.collection('sugestoes').doc(id);
-      const sugestaoDoc = await sugestaoRef.get();
-
-      if (!sugestaoDoc.exists) {
-        return reply.status(404).send({ message: 'Sugestão não encontrada' });
-      }
-
-      const sugestao = sugestaoDoc.data();
-
-      // Movendo a sugestão para a coleção 'termos'
-      await db.collection('termos').doc(id).set({
-        termo: sugestao?.termo,
-        definicao: sugestao?.definicao,
-        exemplos: sugestao?.exemplos || [],
-        linguagem: sugestao?.linguagem || 'Geral',
-        dataCriacao: new Date(),
-      });
-
-      // Removendo a sugestão da coleção de sugestões
-      await sugestaoRef.delete();
-
-      return reply.status(200).send({ message: 'Sugestão aceita e movida para o dicionário' });
+      const docRef = db.collection('sugestoes').doc(id);
+      await docRef.update({ status });
+      return reply.status(200).send({ message: 'Status da sugestão atualizado' });
     } catch (error) {
-      console.error('Erro ao aceitar sugestão:', error);
-      return reply.status(500).send({ message: 'Erro ao aceitar sugestão' });
+      console.error('Erro ao atualizar status:', error);
+      return reply.status(500).send({ message: 'Erro ao atualizar status' });
     }
   });
 }
+
+export default suggestsRoutes;

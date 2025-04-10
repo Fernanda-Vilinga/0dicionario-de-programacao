@@ -12,14 +12,14 @@ import {
   ScrollView
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_BASE_URL from 'src/config';
 import HeaderComum from '../HeaderComum';
 
-const id = "mZkU0DJhVMqoIfychMd2";
+
 
 interface Quiz {
-  id: string;
+  usuarioId: string;
   pergunta: string;
   opcoes: string[];
   respostaCorreta: number;
@@ -32,7 +32,7 @@ const QuizzesScreen = () => {
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalType, setModalType] = useState<'add' | 'edit'>('add');
-  
+  const [usuarioId, setUsuarioId] = useState<string | null>(null);
   // Estados do formulário do modal
   const [quizPergunta, setQuizPergunta] = useState('');
   const [quizCategoria, setQuizCategoria] = useState('');
@@ -45,6 +45,10 @@ const QuizzesScreen = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/quiz/perguntas`);
       const data: Quiz[] = await response.json();
+  
+      // Ordena os quizzes em ordem alfabética pela categoria
+      data.sort((a, b) => a.categoria.localeCompare(b.categoria));
+  
       setQuizzes(data);
     } catch (error) {
       Alert.alert('Erro', 'Falha ao carregar quizzes');
@@ -52,11 +56,25 @@ const QuizzesScreen = () => {
       setLoading(false);
     }
   };
+  
 
   useEffect(() => {
     fetchQuizzes();
   }, []);
-
+  useEffect(() => {
+    const obterUsuarioId = async () => {
+      try {
+        const idSalvo = await AsyncStorage.getItem('usuarioId');
+        if (idSalvo) {
+          setUsuarioId(idSalvo);
+        }
+      } catch (error) {
+        console.error("Erro ao obter usuário ID:", error);
+      }
+    };
+    obterUsuarioId();
+  }, []);
+  
   const openModal = (type: 'add' | 'edit', quiz?: Quiz) => {
     setModalType(type);
     if (type === 'edit' && quiz) {
@@ -112,9 +130,9 @@ const QuizzesScreen = () => {
     };
   
     try {
-      const isEditing = modalType === 'edit' && selectedQuiz?.id;
+      const isEditing = modalType === 'edit' && selectedQuiz?.usuarioId;
       const url = isEditing
-        ? `${API_BASE_URL}/quiz/perguntas/${selectedQuiz.id}`
+        ? `${API_BASE_URL}/quiz/perguntas/${selectedQuiz.usuarioId}`
         : `${API_BASE_URL}/quiz/perguntas`;
       const method = isEditing ? 'PUT' : 'POST';
   
@@ -162,7 +180,7 @@ const QuizzesScreen = () => {
       
       Alert.alert('Sucesso', 'Quiz excluído!');
       // Atualiza a lista local removendo o quiz excluído
-      setQuizzes(prev => prev.filter(quiz => quiz.id !== id));
+      setQuizzes(prev => prev.filter(quiz => quiz.usuarioId !== id));
     } catch (error) {
       console.error('Erro ao excluir quiz:', error);
       Alert.alert('Erro', error instanceof Error ? error.message : 'Ocorreu um erro desconhecido');
@@ -181,18 +199,18 @@ const QuizzesScreen = () => {
             <View style={styles.quizCard}>
               <Text style={styles.quizTitle}>{item.pergunta}</Text>
               <Text style={styles.quizCategory}>{item.categoria || 'Sem categoria'}</Text>
-              <Text style={styles.quizDate}>{item.date || 'Data não disponível'}</Text>
+              
               <View style={styles.actions}>
                 <TouchableOpacity style={styles.button} onPress={() => openModal('edit', item)}>
                   <Text style={styles.buttonText}>Editar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteQuiz(item.id)}>
+                <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteQuiz(item.usuarioId)}>
                   <Text style={styles.buttonText}>Excluir</Text>
                 </TouchableOpacity>
               </View>
             </View>
           )}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.usuarioId}
           contentContainerStyle={styles.listContent}
         />
       )}

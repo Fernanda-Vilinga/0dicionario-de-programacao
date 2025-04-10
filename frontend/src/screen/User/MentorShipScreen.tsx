@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useContext } from 'react';
 import { 
   View, 
   Text, 
@@ -7,9 +7,6 @@ import {
   FlatList, 
   Dimensions,
   Alert,
-  ActivityIndicator,
-  Image,
-  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -44,10 +41,13 @@ const areasMentoria: Category[] = [
   { id: '8', nome: 'DevOps & Infraestrutura', icon: 'cloud-outline' },
 ];
 
+import { ThemeContext } from 'src/context/ThemeContext';
+
 const MentoriaScreen: React.FC = () => {
   const [areaSelecionada, setAreaSelecionada] = useState<string | null>(null);
   const [subareaSelecionada, setSubareaSelecionada] = useState<string | null>(null);
   const navigation = useNavigation<NavigationProp>();
+  const { theme } = useContext(ThemeContext);
 
   const selecionarArea = (area: string) => {
     setAreaSelecionada(area);
@@ -71,14 +71,16 @@ const MentoriaScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
       <HeaderComum screenName="Mentoria" />
-          {/* Novo botão para acessar o Chat */}
-          <TouchableOpacity style={styles.chatButton} onPress={irParaChat}>
-            <Ionicons name="chatbubble-ellipses" size={24} color="#fff" />
-            <Text style={styles.chatButtonText}>Ir para Chat</Text>
-          </TouchableOpacity>
-      <Text style={styles.titulo}>Escolha uma área para a mentoria</Text>
+      
+      {/* Novo botão para acessar o Chat */}
+      <TouchableOpacity style={[styles.chatButton, { backgroundColor: theme.buttonBackground }]} onPress={irParaChat}>
+        <Ionicons name="chatbubble-ellipses" size={24} color="#fff" />
+        <Text style={[styles.chatButtonText, { color: theme.buttonText }]}>Ir para Chat</Text>
+      </TouchableOpacity>
+
+      <Text style={[styles.titulo, { color: theme.textColor }]}>Escolha uma área para a mentoria</Text>
       
       <FlatList
         data={areasMentoria}
@@ -91,52 +93,68 @@ const MentoriaScreen: React.FC = () => {
             onPress={() => selecionarArea(item.nome)}
           >
             <Ionicons name={item.icon} size={24} color="#fff" />
-            <Text style={styles.textoBotao}>{item.nome}</Text>
+            <Text style={[styles.textoBotao, { color: theme.buttonText }]}>{item.nome}</Text>
           </TouchableOpacity>
         )}
       />
 
       {areaSelecionada && areasMentoria.find(a => a.nome === areaSelecionada)?.subareas && (
         <View style={styles.subareaContainer}>
-          <Text style={styles.subtitulo}>Escolha uma subárea:</Text>
+          <Text style={[styles.subtitulo, { color: theme.textColor }]}>Escolha uma subárea:</Text>
           {areasMentoria.find(a => a.nome === areaSelecionada)?.subareas?.map((sub) => (
             <TouchableOpacity 
               key={sub} 
               style={[styles.botaoSubarea, subareaSelecionada === sub && styles.botaoSelecionado]}
               onPress={() => selecionarSubarea(sub)}
             >
-              <Text style={styles.textoBotao}>{sub}</Text>
+              <Text style={[styles.textoBotao, { color: theme.buttonText }]}>{sub}</Text>
             </TouchableOpacity>
           ))}
         </View>
       )}
 
       {areaSelecionada && (
-        <>
-          <TouchableOpacity style={styles.botaoAvancar} onPress={irParaMentores}>
-            <Text style={styles.textoBotaoAvancar}>Avançar</Text>
-          </TouchableOpacity>
-      
-        </>
+        <TouchableOpacity style={[styles.botaoAvancar, { backgroundColor: theme.buttonBackground }]} onPress={irParaMentores}>
+          <Text style={[styles.textoBotaoAvancar, { color: theme.buttonText }]}>Avançar</Text>
+        </TouchableOpacity>
       )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: '#f5f5f5' },
-  titulo: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 20, color: '#333' },
+  container: { flex: 1, padding: 20 },
+  titulo: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
   lista: { alignItems: 'center', justifyContent: 'center' },
-  botao: { backgroundColor: '#2979FF', padding: 15, borderRadius: 10, margin: 10, alignItems: 'center', justifyContent: 'center', width: width * 0.4 },
+  botao: { 
+    backgroundColor: '#2979FF', 
+    padding: 15, 
+    borderRadius: 10, 
+    margin: 10, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    width: width * 0.4 
+  },
   botaoSelecionado: { backgroundColor: '#004AAD' },
-  textoBotao: { color: '#fff', fontSize: 16, fontWeight: 'bold', textAlign: 'center', marginTop: 5 },
+  textoBotao: { fontSize: 16, fontWeight: 'bold', textAlign: 'center', marginTop: 5 },
   subareaContainer: { marginTop: 20, alignItems: 'center' },
-  subtitulo: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#333' },
-  botaoSubarea: { backgroundColor: '#1976D2', padding: 12, borderRadius: 8, marginVertical: 5, width: width * 0.5, alignItems: 'center' },
-  botaoAvancar: { marginTop: 20, backgroundColor: '#004AAD', padding: 15, borderRadius: 8, alignItems: 'center' },
-  textoBotaoAvancar: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  subtitulo: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
+  botaoSubarea: { 
+    backgroundColor: '#1976D2', 
+    padding: 12, 
+    borderRadius: 8, 
+    marginVertical: 5, 
+    width: width * 0.5, 
+    alignItems: 'center' 
+  },
+  botaoAvancar: { 
+    marginTop: 20, 
+    padding: 15, 
+    borderRadius: 8, 
+    alignItems: 'center' 
+  },
+  textoBotaoAvancar: { fontSize: 18, fontWeight: 'bold' },
   chatButton: {
-    backgroundColor: '#004AAD',
     padding: 15,
     borderRadius: 10,
     flexDirection: 'row',
@@ -145,7 +163,6 @@ const styles = StyleSheet.create({
     marginTop: 15,
   },
   chatButtonText: {
-    color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
     marginLeft: 8,

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  ScrollView,
   StyleSheet,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -77,6 +78,14 @@ const AudioPlayer: React.FC<{ audioUri: string }> = ({ audioUri }) => {
     setLoadingAudio(false);
   };
 
+  React.useEffect(() => {
+    return () => {
+      if (sound) {
+        sound.unloadAsync();
+      }
+    };
+  }, [sound]);
+
   return (
     <TouchableOpacity onPress={playPauseAudio} style={localStyles.audioPlayerContainer}>
       {loadingAudio ? (
@@ -128,7 +137,6 @@ const localStyles = StyleSheet.create({
     alignSelf: 'center',
   },
 });
-
 const ChatArea: React.FC<ChatAreaProps> = ({
   selectedContact,
   sessionId,
@@ -146,15 +154,21 @@ const ChatArea: React.FC<ChatAreaProps> = ({
   const styles = useStyles();
   const { theme } = React.useContext(ThemeContext);
   const navigation = useNavigation();
+  const scrollRef = React.useRef<ScrollView>(null);
+
   const parseTimestamp = (timestamp: any): Date =>
     timestamp && timestamp._seconds ? new Date(timestamp._seconds * 1000) : new Date(timestamp);
 
+  React.useEffect(() => {
+    scrollRef.current?.scrollToEnd({ animated: true });
+  }, [messages]);
+
   const renderMessage = ({ item }: { item: Message }) => {
-    const isMyMessage = item.sender === selectedContact.id;
+    const isMyMessage = item.sender !== selectedContact.id;
     const messageDate = parseTimestamp(item.timestamp);
-  
+    
     return (
-      <View style={[styles.messageContainer, isMyMessage ? styles.myMessage : styles.otherMessage]}>
+      <View style={[styles.messageContainer, isMyMessage ? styles.myMessage : styles.otherMessage, { marginVertical: 6 }]}>
         {item.text ? (
           <Text style={[styles.messageText, { color: theme.textColor }]}>{item.text}</Text>
         ) : item.audioUri ? (
@@ -166,7 +180,6 @@ const ChatArea: React.FC<ChatAreaProps> = ({
       </View>
     );
   };
-  
 
   return (
     <View style={{ flex: 1 }}>
@@ -200,18 +213,25 @@ const ChatArea: React.FC<ChatAreaProps> = ({
 
       {/* Lista de mensagens */}
       {loadingMessages ? (
-        <ActivityIndicator size="large" color={theme.buttonBackground} style={{ marginTop: 20 }} />
-      ) : (
-        <FlatList
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={[styles.messagesList, { flexGrow: 1, justifyContent: 'flex-end' }]}
+        <ActivityIndicator
+          size="large"
+          color={theme.buttonBackground}
+          style={{ marginTop: 20 }}
         />
+      ) : (
+        <ScrollView
+          ref={scrollRef}
+          style={{ flex: 1 }}
+          contentContainerStyle={[styles.messagesList, { paddingBottom: 120 }]} // Espaço para a barra fixa
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {messages.map((item) => renderMessage({ item }))}
+        </ScrollView>
       )}
 
-      {/* Barra inferior para envio de mensagens */}
-      <View style={styles.bottomBar}>
+      {/* Barra inferior para envio de mensagens (fixada) */}
+      <View style={[styles.bottomBar, { position: 'absolute', bottom: 0, width: '100%' }]}>
         <TouchableOpacity style={styles.iconButton} onPress={openAudioModal}>
           <Ionicons name="mic" size={24} color={theme.buttonText} />
         </TouchableOpacity>
@@ -230,5 +250,6 @@ const ChatArea: React.FC<ChatAreaProps> = ({
     </View>
   );
 };
+
 
 export default ChatArea;

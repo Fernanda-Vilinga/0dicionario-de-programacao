@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform, } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 
 const Styles = () => {
@@ -47,12 +47,6 @@ const Styles = () => {
     otherMessage: { backgroundColor: colors.card, alignSelf: 'flex-start' },
     messageText: { fontSize: 16, color: colors.text },
     messageTime: { fontSize: 12, color: colors.border, marginTop: 5, textAlign: 'right' },
-    bottomBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.primary,
-      padding: 10,
-    },
     input: {
       flex: 1,
       backgroundColor: colors.background,
@@ -63,7 +57,15 @@ const Styles = () => {
       borderWidth: 1,
       borderColor: colors.border,
       color: colors.text,
+    },bottomBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.primary,
+      padding: 10,
+      height: 60, // ou outro valor fixo
     },
+    
+    
     modalOverlay: {
       flex: 1,
       backgroundColor: 'rgba(0,0,0,0.5)',
@@ -114,3 +116,4 @@ const Styles = () => {
 };
 
 export default Styles;
+

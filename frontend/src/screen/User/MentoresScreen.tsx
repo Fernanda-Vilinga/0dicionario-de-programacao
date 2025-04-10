@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { 
   View, 
   Text, 
@@ -17,6 +17,7 @@ import axios from 'axios';
 import API_BASE_URL from 'src/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRoute, RouteProp } from '@react-navigation/native';
+import { ThemeContext } from 'src/context/ThemeContext';
 
 interface Mentor {
   id: string;
@@ -55,6 +56,8 @@ const MentoresScreen: React.FC = () => {
   // Recupera a categoria a partir dos parâmetros de rota
   const route = useRoute<RouteProp<RootStackParamList, 'Mentores'>>();
   const categoriaSelecionada = route.params?.subarea || route.params?.area || 'Geral';
+
+  const { theme } = useContext(ThemeContext);
 
   useEffect(() => {
     const fetchMentores = async () => {
@@ -145,25 +148,25 @@ const MentoresScreen: React.FC = () => {
   
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2979FF" />
-        <Text>Carregando mentores...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.backgroundColor }]}>
+        <ActivityIndicator size="large" color={theme.buttonBackground} />
+        <Text style={{ color: theme.textColor }}>Carregando mentores...</Text>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.backgroundColor }]}>
         <Text style={{ color: 'red' }}>{error}</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
       <HeaderComum screenName="Mentoria" />
-      <Text style={styles.titulo}>Escolha um mentor</Text>
+      <Text style={[styles.titulo, { color: theme.textColor }]}>Escolha um mentor</Text>
       <FlatList
         data={mentores}
         keyExtractor={(item) => item.id}
@@ -175,16 +178,16 @@ const MentoresScreen: React.FC = () => {
               <Image
                 source={{ 
                   uri: mentorImage 
-                    ? (mentorImage.startsWith('data:')
-                        ? mentorImage
-                        : `data:image/jpeg;base64,${mentorImage}`)
+                    ? (mentorImage.startsWith('data:') 
+                        ? mentorImage 
+                        : `data:image/jpeg;base64,${mentorImage}`) 
                     : 'https://via.placeholder.com/150'
                 }}
                 style={styles.imagem}
               />
               <View style={styles.infoContainer}>
-                <Text style={styles.nome}>{item.nome}</Text>
-                <Text style={styles.bio}>{item.bio}</Text>
+                <Text style={[styles.nome, { color: theme.textColor }]}>{item.nome}</Text>
+                <Text style={[styles.bio, { color: theme.textColor }]}>{item.bio}</Text>
                 <Text style={[styles.status, { color: item.online ? 'green' : 'red' }]}>
                   {item.online ? 'Online' : 'Offline'}
                 </Text>
@@ -196,7 +199,7 @@ const MentoresScreen: React.FC = () => {
       
       {/* Modal de Detalhes */}
       <Modal visible={modalVisible} animationType="slide">
-        <View style={styles.modalContainer}>
+        <View style={[styles.modalContainer, { backgroundColor: theme.backgroundColor }]}>
           {/* Botão de fechar */}
           <TouchableOpacity
             style={styles.botaoFechar}
@@ -206,10 +209,6 @@ const MentoresScreen: React.FC = () => {
           </TouchableOpacity>
           {mentorSelecionado && (
             <>
-              {/*
-                Obter a imagem do mentor no modal: 
-                Usamos a mesma lógica para obter a imagem.
-              */}
               <Image
                 source={{ 
                   uri: (mentorSelecionado.imagem || mentorSelecionado.profileImage)
@@ -220,23 +219,15 @@ const MentoresScreen: React.FC = () => {
                 }}
                 style={styles.imagemGrande}
               />
-              <Text style={styles.modalNome}>{mentorSelecionado.nome}</Text>
-              <Text style={styles.modalBio}>{mentorSelecionado.bio}</Text>
-              <Text style={styles.label}>Status:</Text>
+              <Text style={[styles.modalNome, { color: theme.textColor }]}>{mentorSelecionado.nome}</Text>
+              <Text style={[styles.modalBio, { color: theme.textColor }]}>{mentorSelecionado.bio}</Text>
+              <Text style={[styles.label, { color: theme.textColor }]}>Status:</Text>
               <Text style={[styles.modalTexto, { color: mentorSelecionado.online ? 'green' : 'red' }]}>
                 {mentorSelecionado.online ? 'Online' : 'Offline'}
               </Text>
-              <Text style={styles.label}>Sobre:</Text>
-              <Text style={styles.modalTexto}>{mentorSelecionado.sobre}</Text>
-              <Text style={styles.label}>Escolha um plano:</Text>
-              <Picker
-                selectedValue={planoSelecionado}
-                style={styles.picker}
-                onValueChange={(itemValue) => setPlanoSelecionado(itemValue)}
-              >
-                <Picker.Item label="Gratuito" value="Basico" />
-                <Picker.Item label="Pago" value="Avancado" />
-              </Picker>
+              <Text style={[styles.label, { color: theme.textColor }]}>Sobre:</Text>
+              <Text style={[styles.modalTexto, { color: theme.textColor }]}>{mentorSelecionado.sobre}</Text>
+              
               <TouchableOpacity style={styles.botaoData} onPress={() => setShowDatePicker(true)}>
                 <Text style={styles.botaoDataTexto}>Selecionar Data</Text>
               </TouchableOpacity>
@@ -266,18 +257,18 @@ const MentoresScreen: React.FC = () => {
                   }}
                 />
               )}
-              <Text style={styles.modalTexto}>
+              <Text style={[styles.modalTexto, { color: theme.textColor }]}>
                 Data e Hora Selecionadas: {dataMentoria.toLocaleDateString()} às {horaMentoria.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </Text>
               <TouchableOpacity 
-                style={styles.botao} 
+                style={[styles.botao, { backgroundColor: theme.buttonBackground }]} 
                 onPress={solicitarMentoria}
                 disabled={loadingSolicitacao}
               >
                 {loadingSolicitacao ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.textoBotao}>Solicitar Mentoria</Text>
+                  <Text style={[styles.textoBotao, { color: theme.buttonText }]}>Solicitar Mentoria</Text>
                 )}
               </TouchableOpacity>
             </>
@@ -289,15 +280,15 @@ const MentoresScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: '#f5f5f5' },
-  titulo: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 20, color: '#333' },
+  container: { flex: 1, padding: 20 },
+  titulo: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
   card: { backgroundColor: '#fff', padding: 15, marginVertical: 10, borderRadius: 10, flexDirection: 'row', alignItems: 'center', elevation: 3 },
   imagem: { width: 60, height: 60, borderRadius: 30, marginRight: 15 },
   infoContainer: { flex: 1 },
   nome: { fontSize: 18, fontWeight: 'bold' },
   bio: { color: '#555' },
   status: { fontWeight: 'bold', marginTop: 5 },
-  modalContainer: { flex: 1, alignItems: 'center', padding: 20, backgroundColor: '#fff' },
+  modalContainer: { flex: 1, alignItems: 'center', padding: 20 },
   imagemGrande: { width: 150, height: 150, borderRadius: 75, marginBottom: 15 },
   modalNome: { fontSize: 22, fontWeight: 'bold' },
   modalBio: { fontSize: 16, color: '#555', marginBottom: 10 },
