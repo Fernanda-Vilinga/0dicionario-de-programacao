@@ -5,6 +5,20 @@ import db from '../../firebaseConfig';
 
 const SECRET_KEY = 'seu_segredo_super_secreto'; // Troque por uma chave mais segura e armazene em variáveis de ambiente
 
+// Função auxiliar para registrar atividade
+export async function registrarAtividade(userId: string, descricao: string, acao: string) {
+  try {
+    await db.collection('atividades').add({
+      userId,
+      description: descricao,
+      action: acao,
+      createdAt: new Date(), // Usamos a data atual
+    });
+  } catch (error) {
+    console.error('Erro ao registrar atividade:', error);
+  }
+}
+
 export default async function registerAdminRoutes(app: FastifyInstance) {
   app.post('/auth/registeradmin', async (req, reply) => {
     const { nome, email, senha } = req.body as { nome: string; email: string; senha: string; };
@@ -29,6 +43,11 @@ export default async function registerAdminRoutes(app: FastifyInstance) {
         senha: hashedPassword,
         tipo_de_usuario: 'ADMIN',
       });
+
+      // Registra a atividade de cadastro de administrador com mensagem mais natural
+      const descricao = `Administrador ${nome} foi cadastrado com sucesso.`;
+      const acao = 'Cadastro de administrador';
+      await registrarAtividade(newAdmin.id, descricao, acao);
 
       // Gerar Token JWT
       const token = jwt.sign({ id: newAdmin.id, email, tipo_de_usuario: 'ADMIN' }, SECRET_KEY, {

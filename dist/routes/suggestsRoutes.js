@@ -12,7 +12,24 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.registrarAtividade = registrarAtividade;
 const firebaseConfig_1 = __importDefault(require("../firebaseConfig"));
+// Função auxiliar para registrar atividade
+function registrarAtividade(userId, descricao, acao) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            yield firebaseConfig_1.default.collection('atividades').add({
+                userId,
+                description: descricao,
+                action: acao,
+                createdAt: new Date(), // Usamos a data atual
+            });
+        }
+        catch (error) {
+            console.error('Erro ao registrar atividade:', error);
+        }
+    });
+}
 function suggestsRoutes(app) {
     return __awaiter(this, void 0, void 0, function* () {
         // 🔹 Enviar sugestão
@@ -30,6 +47,10 @@ function suggestsRoutes(app) {
                     data: new Date().toISOString(),
                 };
                 const docRef = yield firebaseConfig_1.default.collection('sugestoes').add(novaSugestao);
+                // Registra a atividade de envio de sugestão com mensagem natural
+                const descAtividade = `Sugestão enviada com sucesso para a categoria "${categoria}".`;
+                const acao = "Enviar Sugestão";
+                yield registrarAtividade(usuarioId, descAtividade, acao);
                 return reply.status(201).send({ message: 'Sugestão recebida', id: docRef.id });
             }
             catch (error) {
@@ -59,6 +80,12 @@ function suggestsRoutes(app) {
             try {
                 const docRef = firebaseConfig_1.default.collection('sugestoes').doc(id);
                 yield docRef.update({ status });
+                // Registra a atividade de atualização de status com mensagem natural
+                // Caso o usuário não esteja disponível no body, usa 'sistema'
+                const usuarioId = request.body.usuarioId || 'sistema';
+                const descAtividade = `Status da sugestão atualizado para "${status}".`;
+                const acao = "Atualizar Sugestão";
+                yield registrarAtividade(usuarioId, descAtividade, acao);
                 return reply.status(200).send({ message: 'Status da sugestão atualizado' });
             }
             catch (error) {

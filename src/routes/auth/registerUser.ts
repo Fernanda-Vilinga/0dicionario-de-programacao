@@ -4,6 +4,20 @@ import jwt from 'jsonwebtoken';
 import db from '../../firebaseConfig'; // O seu arquivo de configuração do Firebase (não o Admin)
 import admin from 'firebase-admin'; // O Admin SDK para salvar timestamps corretamente
 
+// Função auxiliar para registrar atividade
+export async function registrarAtividade(userId: string, descricao: string, acao: string) {
+  try {
+    await db.collection('atividades').add({
+      userId,
+      description: descricao,
+      action: acao,
+      createdAt: new Date(), // Usamos a data atual
+    });
+  } catch (error) {
+    console.error('Erro ao registrar atividade:', error);
+  }
+}
+
 const SECRET_KEY = 'seu_segredo_super_secreto'; // Use variável de ambiente em produção
 
 export default async function registerUserRoutes(app: FastifyInstance) {
@@ -24,7 +38,6 @@ export default async function registerUserRoutes(app: FastifyInstance) {
 
       const hashedPassword = await bcrypt.hash(senha, 10);
 
-      // Use o admin.firestore.Timestamp.now() ou admin.firestore.FieldValue.serverTimestamp() aqui
       const newUser = await db.collection('usuarios').add({
         nome,
         email,
@@ -34,6 +47,11 @@ export default async function registerUserRoutes(app: FastifyInstance) {
         lastLogin: null,
         createdAt: admin.firestore.FieldValue.serverTimestamp(), // Garantindo que seja um timestamp do servidor
       });
+
+      // Registra a atividade de criação do usuário com mensagem mais natural
+      const descricao = `Usuário ${nome} foi cadastrado com sucesso.`;
+      const acao = 'Registro de usuário';
+      await registrarAtividade(newUser.id, descricao, acao);
 
       const token = jwt.sign(
         { id: newUser.id, email, tipo_de_usuario: 'USER' },

@@ -114,14 +114,16 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     marginTop: 20,
-    backgroundColor: '#007AFF',
+    backgroundColor: 'blue',
     padding: 10,
     borderRadius: 5,
+    
   },
   closeButtonText: {
     color: 'white',
     fontSize: 16,
   },
+ 
 });
 
 export default AudioRecorderModal;

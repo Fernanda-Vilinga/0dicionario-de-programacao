@@ -174,7 +174,7 @@ const MentoresScreen: React.FC = () => {
           // Obter a imagem do mentor: priorizamos item.imagem; se não existir, usa item.profileImage
           const mentorImage = item.imagem || item.profileImage;
           return (
-            <TouchableOpacity style={styles.card} onPress={() => abrirDetalhesMentor(item)}>
+            <TouchableOpacity style={[styles.card , { backgroundColor: theme.backgroundColor }]}onPress={() => abrirDetalhesMentor(item)}>
               <Image
                 source={{ 
                   uri: mentorImage 
@@ -282,7 +282,7 @@ const MentoresScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20 },
   titulo: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
-  card: { backgroundColor: '#fff', padding: 15, marginVertical: 10, borderRadius: 10, flexDirection: 'row', alignItems: 'center', elevation: 3 },
+  card: { padding: 15, marginVertical: 10, borderRadius: 10, flexDirection: 'row', alignItems: 'center', elevation: 3 },
   imagem: { width: 60, height: 60, borderRadius: 30, marginRight: 15 },
   infoContainer: { flex: 1 },
   nome: { fontSize: 18, fontWeight: 'bold' },

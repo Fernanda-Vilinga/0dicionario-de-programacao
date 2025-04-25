@@ -8,6 +8,7 @@ import GerenciarMentoria from './MentorShipScreenAdmin';
 import SettingsScreen from '../User/SettingsScreen';
 import AdminDashboardScreen from './AdminHome';
 import SugestoesScreen from './SugestoesScreen';
+import SettingsScreenAdmin from './SettingsAdmin';
 
 const Tab = createBottomTabNavigator();
 
@@ -41,7 +42,7 @@ const AdminNavigator = () => {
               iconName = 'settings';
               break;
             default:
-              iconName = 'dashboard';
+              iconName = 'settings';
           }
 
           return <MaterialIcons name={iconName} size={size} color={color} />;
@@ -57,7 +58,7 @@ const AdminNavigator = () => {
       <Tab.Screen name="Quizzes" component={GerenciarQuizzes} />
       <Tab.Screen name="Mentoria" component={GerenciarMentoria} />
       <Tab.Screen name="Sugestões" component={SugestoesScreen} />
-      <Tab.Screen name="Configurações" component={SettingsScreen} />
+      <Tab.Screen name="Definições" component={SettingsScreenAdmin} />
     </Tab.Navigator>
   );
 };

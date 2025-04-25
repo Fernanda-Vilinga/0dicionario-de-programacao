@@ -12,22 +12,20 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.registrarAtividade = registrarAtividade;
 exports.default = profileRoutes;
 const firebaseConfig_1 = __importDefault(require("../firebaseConfig"));
-// Função auxiliar para registrar atividade
+// Função auxiliar para registrar atividade (fire-and-forget)
 function registrarAtividade(userId, descricao, acao) {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            yield firebaseConfig_1.default.collection('atividades').add({
-                userId,
-                description: descricao,
-                action: acao,
-                createdAt: new Date(), // Usamos a data atual
-            });
-        }
-        catch (error) {
-            console.error('Erro ao registrar atividade:', error);
-        }
+    firebaseConfig_1.default.collection('atividades')
+        .add({
+        userId,
+        description: descricao,
+        action: acao,
+        createdAt: new Date(), // Usamos a data atual
+    })
+        .catch(error => {
+        console.error('Erro ao registrar atividade:', error);
     });
 }
 function profileRoutes(app) {
@@ -72,11 +70,11 @@ function profileRoutes(app) {
                 }
                 // Realiza a atualização
                 yield userRef.update(updateData);
-                // Registra a atividade no Firestore
+                // Registra a atividade no Firestore de forma assíncrona (fire-and-forget)
                 const nomeParaRegistro = nome || (userData === null || userData === void 0 ? void 0 : userData.nome) || 'Usuário';
                 const descricao = `${nomeParaRegistro} atualizou seu perfil`;
                 const acao = "Atualizar perfil";
-                yield registrarAtividade(id, descricao, acao);
+                registrarAtividade(id, descricao, acao);
                 console.log("Perfil atualizado e atividade registrada.");
                 return reply.send({ message: 'Perfil atualizado com sucesso' });
             }
@@ -87,7 +85,9 @@ function profileRoutes(app) {
         // 🔥 Nova rota para buscar todos os mentores 🔥
         app.get('/mentores', (req, reply) => __awaiter(this, void 0, void 0, function* () {
             try {
-                const snapshot = yield firebaseConfig_1.default.collection('usuarios').where('tipo_de_usuario', '==', 'MENTOR').get();
+                const snapshot = yield firebaseConfig_1.default.collection('usuarios')
+                    .where('tipo_de_usuario', '==', 'MENTOR')
+                    .get();
                 if (snapshot.empty) {
                     return reply.status(404).send({ message: 'Nenhum mentor encontrado' });
                 }

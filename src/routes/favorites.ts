@@ -1,18 +1,31 @@
 import { FastifyInstance } from 'fastify';
-import { Firestore, FieldValue } from 'firebase-admin/firestore'; // Importando FieldValue corretamente
-import db from '../firebaseConfig'; // Seu arquivo de configuração do Firebase
+import { FieldValue } from 'firebase-admin/firestore';
+import db from '../firebaseConfig';
 
-// Definindo a interface para o request de adicionar favorito
 interface AddFavoritoRequest {
   usuarioId: string;
-  termoId: string;
+  tipo: 'termo' | 'anotacao';
+  id: string;
+}
+
+// Função auxiliar para registrar atividade
+export async function registrarAtividade(userId: string, descricao: string, acao: string) {
+  try {
+    await db.collection('atividades').add({
+      userId,
+      description: descricao,
+      action: acao,
+      createdAt: new Date(), // Usamos a data atual
+    });
+  } catch (error) {
+    console.error('Erro ao registrar atividade:', error);
+  }
 }
 
 export default async function favoriteRoutes(app: FastifyInstance) {
-
-  // Rota para adicionar favorito
+  // Adicionar favorito
   app.post('/favoritos', async (req, reply) => {
-    const { usuarioId, termoId }: AddFavoritoRequest = req.body as AddFavoritoRequest;
+    const { usuarioId, tipo, id }: AddFavoritoRequest = req.body as AddFavoritoRequest;
 
     try {
       const userRef = db.collection('usuarios').doc(usuarioId);
@@ -22,20 +35,37 @@ export default async function favoriteRoutes(app: FastifyInstance) {
         return reply.status(404).send({ message: 'Usuário não encontrado' });
       }
 
-      // Adiciona o termo aos favoritos do usuário
+      // Extraímos o nome do usuário para mensagens mais naturais
+      const userData = userDoc.data();
+      const nomeUsuario = userData?.nome || 'O usuário';
+
+      const campo = tipo === 'termo' ? 'favoritosTermos' : 'favoritosAnotacoes';
+      const subcolecao = tipo === 'termo' ? 'favoritosTermos' : 'favoritosAnotacoes';
+
+      // Atualiza o array no doc do usuário
       await userRef.update({
-        favoritos: FieldValue.arrayUnion(termoId),
+        [campo]: FieldValue.arrayUnion(id),
       });
 
-      return reply.send({ message: 'Termo adicionado aos favoritos com sucesso' });
+      // Cria persistência na subcoleção
+      await userRef.collection(subcolecao).doc(id).set({
+        data: new Date().toISOString(),
+      });
+
+      // Registra atividade de adicionar favorito com mensagem amigável (sem exibir ID)
+      const descricao = `${nomeUsuario} adicionou um ${tipo === 'termo' ? 'termo' : 'a anotação'} aos favoritos.`;
+      const acao = "Adicionar Favorito";
+      await registrarAtividade(usuarioId, descricao, acao);
+
+      return reply.send({ message: `${tipo === 'termo' ? 'Termo' : 'Anotação'} adicionada aos favoritos com sucesso` });
     } catch (error) {
       return reply.status(500).send({ message: 'Erro ao adicionar favorito', error });
     }
   });
 
-  // Rota para remover favorito
+  // Remover favorito
   app.delete('/favoritos', async (req, reply) => {
-    const { usuarioId, termoId }: AddFavoritoRequest = req.body as AddFavoritoRequest;
+    const { usuarioId, tipo, id }: AddFavoritoRequest = req.body as AddFavoritoRequest;
 
     try {
       const userRef = db.collection('usuarios').doc(usuarioId);
@@ -45,21 +75,34 @@ export default async function favoriteRoutes(app: FastifyInstance) {
         return reply.status(404).send({ message: 'Usuário não encontrado' });
       }
 
-      // Remove o termo dos favoritos do usuário
+      const userData = userDoc.data();
+      const nomeUsuario = userData?.nome || 'O usuário';
+
+      const campo = tipo === 'termo' ? 'favoritosTermos' : 'favoritosAnotacoes';
+      const subcolecao = tipo === 'termo' ? 'favoritosTermos' : 'favoritosAnotacoes';
+
+      // Remove do array do usuário
       await userRef.update({
-        favoritos: FieldValue.arrayRemove(termoId),
+        [campo]: FieldValue.arrayRemove(id),
       });
 
-      return reply.send({ message: 'Termo removido dos favoritos com sucesso' });
+      // Remove da subcoleção
+      await userRef.collection(subcolecao).doc(id).delete();
+
+      // Registra atividade de remoção de favorito com mensagem amigável
+      const descricao = `${nomeUsuario} removeu um ${tipo === 'termo' ? 'termo' : 'a anotação'} dos favoritos.`;
+      const acao = "Remover Favorito";
+      await registrarAtividade(usuarioId, descricao, acao);
+
+      return reply.send({ message: `${tipo === 'termo' ? 'Termo' : 'Anotação'} removido dos favoritos com sucesso` });
     } catch (error) {
       return reply.status(500).send({ message: 'Erro ao remover favorito', error });
     }
   });
 
-  // Rota para listar favoritos de um usuário
+  // Listar favoritos
   app.get('/favoritos/:usuarioId', async (req, reply) => {
-    // Tipando explicitamente o parâmetro usuarioId
-    const { usuarioId }: { usuarioId: string } = req.params as { usuarioId: string };  // Tipando o param corretamente
+    const { usuarioId }: { usuarioId: string } = req.params as { usuarioId: string };
 
     try {
       const userRef = db.collection('usuarios').doc(usuarioId);
@@ -69,10 +112,17 @@ export default async function favoriteRoutes(app: FastifyInstance) {
         return reply.status(404).send({ message: 'Usuário não encontrado' });
       }
 
-      // Pega os favoritos
-      const favoritos = userDoc.data()?.favoritos || []; // Garantindo que o array de favoritos exista
+      // Subcoleções
+      const termosSnap = await userRef.collection('favoritosTermos').get();
+      const anotacoesSnap = await userRef.collection('favoritosAnotacoes').get();
 
-      return reply.send(favoritos);
+      const termos = termosSnap.docs.map(doc => doc.id);
+      const anotacoes = anotacoesSnap.docs.map(doc => doc.id);
+
+      return reply.send({
+        termos,
+        anotacoes,
+      });
     } catch (error) {
       return reply.status(500).send({ message: 'Erro ao listar favoritos', error });
     }

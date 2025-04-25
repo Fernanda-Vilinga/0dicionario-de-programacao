@@ -1,21 +1,19 @@
-import React, { useEffect, useState } from "react";
-import { 
-  View, 
-  StyleSheet, 
-  TouchableOpacity, 
-  Text, 
-  Image, 
-  StatusBar, 
+import React, { useEffect , useState} from "react";
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Text,
+  Image,
+  StatusBar,
   Platform,
-  Alert,
-  SafeAreaView
+  SafeAreaView,
 } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, useTheme } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StackNavigationProp } from "@react-navigation/stack";
 import API_BASE_URL from "src/config";
-import * as Notifications from 'expo-notifications';
 
 type RootStackParamList = {
   LoginRegister: undefined;
@@ -29,44 +27,11 @@ interface HeaderProps {
 const HeaderHome: React.FC<HeaderProps> = ({ screenName, onOpenSettings }) => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
-
   const [user, setUser] = useState<{ nome: string; profileImage: string | null }>({
     nome: "Carregando...",
     profileImage: null,
   });
-  const [notificationCount, setNotificationCount] = useState(0);
-
-  useEffect(() => {
-    const registerForPushNotificationsAsync = async () => {
-      try {
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        let finalStatus = existingStatus;
-        if (existingStatus !== 'granted') {
-          const { status } = await Notifications.requestPermissionsAsync();
-          finalStatus = status;
-        }
-        if (finalStatus !== 'granted') {
-          Alert.alert('Erro', 'Permissão para notificações não concedida.');
-          return;
-        }
-        const tokenData = await Notifications.getExpoPushTokenAsync();
-        console.log('Token de notificação:', tokenData.data);
-      } catch (error) {
-        console.error('Erro no registro de notificações:', error);
-      }
-    };
-
-    registerForPushNotificationsAsync();
-  }, []);
-
-  useEffect(() => {
-    const subscription = Notifications.addNotificationReceivedListener(notification => {
-      console.log('Notificação recebida:', notification);
-      setNotificationCount(prev => prev + 1);
-    });
-    return () => subscription.remove();
-  }, []);
-
+  
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
@@ -101,7 +66,11 @@ const HeaderHome: React.FC<HeaderProps> = ({ screenName, onOpenSettings }) => {
           <Text style={[styles.userName, { color: colors.text }]}>{user.nome}</Text>
         </View>
 
-        <Text style={[styles.screenName, { color: colors.text }]} numberOfLines={1} ellipsizeMode="tail">
+        <Text
+          style={[styles.screenName, { color: colors.text }]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
           {screenName}
         </Text>
 
@@ -111,11 +80,6 @@ const HeaderHome: React.FC<HeaderProps> = ({ screenName, onOpenSettings }) => {
           </TouchableOpacity>
           <TouchableOpacity style={styles.icon}>
             <Ionicons name="notifications-sharp" size={26} color={colors.text} />
-            {notificationCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{notificationCount}</Text>
-              </View>
-            )}
           </TouchableOpacity>
           <TouchableOpacity style={styles.icon}>
             <MaterialIcons name="local-library" size={26} color="#2979FF" />
@@ -126,10 +90,11 @@ const HeaderHome: React.FC<HeaderProps> = ({ screenName, onOpenSettings }) => {
   );
 };
 
+// Remova qualquer import de Notifications e hooks não utilizados
 const styles = StyleSheet.create({
   safeArea: {
     backgroundColor: "transparent",
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0, 
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   container: {
     flexDirection: "row",
@@ -137,7 +102,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 15,
     paddingVertical: 10,
-    minHeight: 60, // Altura mínima do header
+    minHeight: 60,
   },
   userContainer: {
     flexDirection: "row",
@@ -158,7 +123,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     flex: 1,
     textAlign: "center",
-    maxWidth: "45%", // Ajustado para não ocupar muito espaço
+    maxWidth: "45%",
   },
   rightIcons: {
     flexDirection: "row",
@@ -167,20 +132,6 @@ const styles = StyleSheet.create({
   },
   icon: {
     padding: 5,
-  },
-  badge: {
-    position: "absolute",
-    right: 0,
-    top: -2,
-    backgroundColor: "red",
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-  },
-  badgeText: {
-    color: "white",
-    fontSize: 10,
-    fontWeight: "bold",
   },
 });
 

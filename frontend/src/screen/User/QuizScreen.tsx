@@ -458,8 +458,8 @@ const QuizScreen: React.FC = () => {
           visible={showQuitModal}
           onRequestClose={cancelQuit}
         >
-          <View style={styles.modalContainer}>
-            <View style={[styles.modalContent, { backgroundColor: theme.cardBackground }]}>
+          <View style={[styles.modalContainer, { backgroundColor: theme.cardBackground }]}>
+            <View style={[styles.modalContent, { backgroundColor: theme.backgroundColor }]}>
               <Text style={[styles.modalTitle, { color: theme.textColor }]}>Parar o Jogo?</Text>
               <Text style={[styles.modalMessage, { color: theme.textColor }]}>
                 Seu progresso será perdido. Tem certeza que deseja sair?
@@ -551,8 +551,8 @@ const styles = StyleSheet.create({
   },
   categoryCard: {
     backgroundColor: '#2979FF',
-    width: 150,
-    height: 150,
+    width: 160,
+    height: 180,
     borderRadius: 12,
     margin: 10,
     alignItems: 'center',
@@ -564,7 +564,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 3,
   },
-  categoryIcon: { marginBottom: 10 },
+  categoryIcon: { marginBottom: 10 , color:'blue'},
   categoryName: {
     color: '#fff',
     fontSize: 18,
@@ -589,9 +589,9 @@ const styles = StyleSheet.create({
   resultContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   resultTitle: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 10 },
   resultText: { fontSize: 18, textAlign: 'center', marginBottom: 20 },
-  backButton: { backgroundColor: '#2979FF', padding: 15, borderRadius: 8 },
+  backButton: { backgroundColor: '#2979FF', padding: 15, borderRadius: 8, alignItems:'center' },
   backButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)' },
+  modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center'},
   modalContent: { width: '80%', backgroundColor: '#fff', padding: 20, borderRadius: 10, elevation: 5 },
   modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' },
   modalMessage: { fontSize: 16, textAlign: 'center', marginBottom: 20 },
@@ -643,6 +643,8 @@ const styles = StyleSheet.create({
     elevation: 3, // Sombra no Android
     marginBottom: 15,
     width: '80%',
+    alignSelf: 'center'
+
   },
   buttonText: {
     color: '#fff',

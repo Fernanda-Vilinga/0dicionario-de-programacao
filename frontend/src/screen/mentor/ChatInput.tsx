@@ -21,9 +21,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: colors.primary }]}>
-      <TouchableOpacity style={styles.iconButton} onPress={openAudioModal}>
-        <Ionicons name="mic" size={24} color={colors.text} />
-      </TouchableOpacity>
+     
       <TextInput
         style={[styles.input, { color: colors.text, borderColor: colors.border }]}
         placeholder="Digite sua mensagem..."

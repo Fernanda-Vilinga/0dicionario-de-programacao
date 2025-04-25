@@ -90,12 +90,6 @@ const Styles = () => {
       borderRadius: 5,
     },
     closeButtonText: { color: colors.text, fontSize: 16 },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingVertical: 20,
-    },
     loadingText: { marginTop: 10, fontSize: 26, color: colors.primary },
     chatHeaderImage: { width: 40, height: 40, borderRadius: 20, marginHorizontal: 10 },
     audioPlayerButton: { padding: 8 },audioPlayerContainer: {
@@ -104,6 +98,11 @@ const Styles = () => {
       borderRadius: 8,
       flexDirection: 'row',
       alignItems: 'center',
+    },   emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 20,
     },
     waveformContainer: {
       flexDirection: 'row',
@@ -112,6 +111,15 @@ const Styles = () => {
       position: 'relative',
       paddingVertical: 5,
     },
+      loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+      },
+
+    
+
   });
 };
 

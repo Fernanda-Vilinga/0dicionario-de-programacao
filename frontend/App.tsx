@@ -1,6 +1,8 @@
-import React, { useContext, useMemo } from "react";
+import React, { useContext, useMemo, useEffect, useState } from "react";
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
+import { Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Importação das telas
 import Loading from "./src/screen/Loading";
@@ -29,8 +31,19 @@ import AudioRecorderModal from "./src/screen/mentor/Audio";
 import AudioPlayer from "./src/screen/mentor/Player";
 import SettingsScreenMentor from "./src/screen/mentor/SettingScreenMentor";
 import ListaSessaoScreen from './src/screen/User/ListarCancelarMentoria';
+import UserSessionsScreen from "./src/screen/User/ListarCancelarMentoria";
+import NotificacoesScreen from "./src/screen/Notications/VerNotificacaoes";
+import ChatArea from "./src/screen/mentor/ChatArea";
+import SettingsScreenAdmin from   "./src/screen/admin/SettingsAdmin";
+import ChangePasswordScreen from  "./src/screen/ChangePassword";
+import ResetPasswordScreen from  "./src/screen/ResetPassWord";
 
-import { ThemeContext, ThemeProvider } from "./src/context/ThemeContext"; // ajuste o caminho conforme necessário
+
+// Import do serviço de notificações
+import { registerForPushNotificationsAsync } from './src/services/notifications';
+
+import { ThemeContext, ThemeProvider } from "./src/context/ThemeContext";
+import { SessaoMentoria } from './src/types/types';
 
 export type RootStackParamList = {
   Loading: undefined;
@@ -53,47 +66,78 @@ export type RootStackParamList = {
   DetalheNotaScreen: undefined;
   ManageQuestionsScreen: { quizId: string };
   ProfileMentor: undefined;
-  Chat: undefined;
+  Chat: { sessao: SessaoMentoria };
   Mentores: undefined;
   DefinicoesMentor: undefined;
   ListaSessao: undefined;
+  VerSessao: undefined;
+  Notificacoes: undefined;
+  DefinicoesAdmin: undefined;
+  ChattArea: { sessao: SessaoMentoria };
+  ResetPassword: { usuarioId: string };
+  ChangePassword: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
 
-const AppNavigator = () => {
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Loading" component={Loading} />
-      <Stack.Screen name="LoginRegister" component={LoginRegisterTabs} />
-      <Stack.Screen name="TabsNavigator" component={TabsNavigator} />
-      <Stack.Screen name="Dashboard" component={DashboardScreen} />
-      <Stack.Screen name="Dicionario" component={DicionarioHome} />
-      <Stack.Screen name="Quiz" component={QuizScreen} />
-      <Stack.Screen name="BlocoDeNotas" component={BlocoDeNotasScreen} />
-      <Stack.Screen name="Mentoria" component={MentoriaScreen} />
-      <Stack.Screen name="Perfil" component={ProfileScreen} />
-      <Stack.Screen name="Definicoes" component={SettingsScreen} />
-      <Stack.Screen name="Favoritos" component={FavoritesScreen} />
-      <Stack.Screen name="Sugestoes" component={SuggestionsScreen} />
-      <Stack.Screen name="Historico" component={HistoryScreen} />
-      <Stack.Screen name="Sobre" component={AboutScreen} />
-      <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
-      <Stack.Screen name="MentorNavigator" component={MentorNavigator} />
-      <Stack.Screen name="SugestoesScreen" component={SugestoesScreen} />
-      <Stack.Screen name="DetalheNotaScreen" component={DetalheNotaScreen} />
-      <Stack.Screen name="Mentores" component={MentoresScreen} />
-      <Stack.Screen name="ProfileMentor" component={ProfileMentorScreen} />
-      <Stack.Screen name="Chat" component={ChatsScreen} />
-      <Stack.Screen name="ListaSessao" component={ListaSessaoScreen} />
-    </Stack.Navigator>
-  );
-};
+const AppNavigator = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+  <Stack.Screen name="Loading" component={Loading} />
+  <Stack.Screen name="LoginRegister" component={LoginRegisterTabs} />
+  <Stack.Screen name="TabsNavigator" component={TabsNavigator} />
+  <Stack.Screen name="Dashboard" component={DashboardScreen} />
+  <Stack.Screen name="Dicionario" component={DicionarioHome} />
+  <Stack.Screen name="Quiz" component={QuizScreen} />
+  <Stack.Screen name="BlocoDeNotas" component={BlocoDeNotasScreen} />
+  <Stack.Screen name="Mentoria" component={MentoriaScreen} />
+  <Stack.Screen name="Perfil" component={ProfileScreen} />
+  <Stack.Screen name="Definicoes" component={SettingsScreen} />
+  <Stack.Screen name="Favoritos" component={FavoritesScreen} />
+  <Stack.Screen name="Sugestoes" component={SuggestionsScreen} />
+  <Stack.Screen name="Historico" component={HistoryScreen} />
+  <Stack.Screen name="Sobre" component={AboutScreen} />
+  <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+  <Stack.Screen name="MentorNavigator" component={MentorNavigator} />
+  <Stack.Screen name="SugestoesScreen" component={SugestoesScreen} />
+  <Stack.Screen name="DetalheNotaScreen" component={DetalheNotaScreen} />
+  <Stack.Screen name="Mentores" component={MentoresScreen} />
+  <Stack.Screen name="ProfileMentor" component={ProfileMentorScreen} />
+  <Stack.Screen name="Chat" component={ChatsScreen} />
+  <Stack.Screen name="ListaSessao" component={ListaSessaoScreen} />
+  <Stack.Screen name="VerSessao" component={UserSessionsScreen} />
+  <Stack.Screen name="DefinicoesAdmin" component={SettingsScreenAdmin} />
+<Stack.Screen name="Notificacoes" component={NotificacoesScreen} />
+<Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+<Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+
+</Stack.Navigator>
+);
 
 const AppContent = () => {
   const { isDarkMode } = useContext(ThemeContext);
-  
-  // Memoiza o objeto de tema para que ele seja recalculado somente quando isDarkMode mudar
+  const [usuarioId, setUsuarioId] = useState<string | null>(null);
+
+  // Carrega ID do usuário do AsyncStorage
+  useEffect(() => {
+    AsyncStorage.getItem('usuarioId')
+      .then(id => {
+        if (id) setUsuarioId(id);
+        else Alert.alert('Erro', 'Usuário não identificado.');
+      })
+      .catch(error => console.error('Erro ao ler AsyncStorage:', error));
+  }, []);
+
+  // Registrar push notifications após obter o usuarioId
+  useEffect(() => {
+    if (!usuarioId) return;
+
+    registerForPushNotificationsAsync(usuarioId)
+      .then(token => {
+        if (token) console.log('Token registrado com sucesso:', token);
+      })
+      .catch(err => console.error('Erro ao registrar token:', err));
+  }, [usuarioId]);
+
   const navigationTheme = useMemo(() => ({
     dark: isDarkMode,
     colors: {
@@ -107,8 +151,6 @@ const AppContent = () => {
     fonts: DefaultTheme.fonts,
   }), [isDarkMode]);
 
-  console.log("isDarkMode:", isDarkMode);
-
   return (
     <NavigationContainer theme={navigationTheme}>
       <AppNavigator />
@@ -116,12 +158,10 @@ const AppContent = () => {
   );
 };
 
-const App = () => {
-  return (
-    <ThemeProvider>
-      <AppContent />
-    </ThemeProvider>
-  );
-};
+const App = () => (
+  <ThemeProvider>
+    <AppContent />
+  </ThemeProvider>
+);
 
 export default App;

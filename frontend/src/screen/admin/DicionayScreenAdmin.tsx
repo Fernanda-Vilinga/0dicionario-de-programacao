@@ -6,6 +6,8 @@ import { Picker } from '@react-native-picker/picker';
 import HeaderComum from '../HeaderComum';
 import API_BASE_URL from 'src/config';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useContext } from 'react';
+import { ThemeContext } from 'src/context/ThemeContext';
 
 interface Term {
   id: string;
@@ -24,6 +26,7 @@ const DictionaryScreen: React.FC = () => {
   const [exampleInput, setExampleInput] = useState<string>('');
   const [languageInput, setLanguageInput] = useState<string>('JavaScript');
   const [editingTerm, setEditingTerm] = useState<Term | null>(null);
+  const { theme } = useContext(ThemeContext);
 
   useEffect(() => {
     fetchTerms();
@@ -118,33 +121,48 @@ const DictionaryScreen: React.FC = () => {
       },
     ]);
   };
-
   return (
-    <View style={styles.container}>
+    <View style={{ flex: 1, padding: 20, backgroundColor: theme.backgroundColor }}>
       <HeaderComum screenName="Gerenciar Dicionário" />
-      <TouchableOpacity style={styles.addButton} onPress={() => setModalVisible(true)}>
-        <Text style={styles.buttonText}>Adicionar Termo</Text>
+  
+      <TouchableOpacity 
+        style={[styles.addButton, { backgroundColor: theme.buttonBackground }]} 
+        onPress={() => setModalVisible(true)}
+      >
+        <Text style={[styles.buttonText, { color: theme.buttonText }]}>Adicionar Termo</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.addButton} >
-        <Text style={styles.buttonText}>Ver sugestões</Text>
+  
+      <TouchableOpacity 
+        style={[styles.addButton, { backgroundColor: theme.buttonBackground }]}
+      >
+        <Text style={[styles.buttonText, { color: theme.buttonText }]}>Ver sugestões</Text>
       </TouchableOpacity>
-      <Text style={styles.subtitle}>Lista de Termos</Text>
+  
+      <Text style={[styles.subtitle, { color: theme.textColor }]}>Lista de Termos</Text>
+  
       <FlatList
         data={terms}
         keyExtractor={(item: Term) => item.id}
         renderItem={({ item }: { item: Term }) => (
-          <View style={styles.termRow}>
+          <View style={[
+            styles.termRow, 
+            { backgroundColor: theme.cardBackground, shadowColor: theme.cardShadow }
+          ]}>
             <View style={styles.termContent}>
-              <Text style={styles.term}>{item.termo}</Text>
-              <Text style={styles.definition}>{item.definicao}</Text>
-              <Text style={styles.language}>Linguagem: {item.linguagem || 'Geral'}</Text>
+              <Text style={[styles.term, { color: theme.cardTextColor }]}>{item.termo}</Text>
+              <Text style={[styles.definition, { color: theme.textColor }]}>{item.definicao}</Text>
+              <Text style={[styles.language, { color: theme.placeholderTextColor }]}>
+                Linguagem: {item.linguagem || 'Geral'}
+              </Text>
               {item.exemplos && item.exemplos.length > 0 && (
-                <Text style={styles.example}>Exemplo: {item.exemplos[0]}</Text>
+                <Text style={[styles.example, { color: theme.textColor }]}>
+                  Exemplo: {item.exemplos[0]}
+                </Text>
               )}
             </View>
             <View style={styles.crudActions}>
               <TouchableOpacity onPress={() => handleEditTerm(item)} style={styles.actionButton}>
-                <MaterialIcons name="edit" size={24} color="#2979FF" />
+                <MaterialIcons name="edit" size={24} color={theme.buttonBackground} />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => handleDeleteTerm(item.id)} style={styles.actionButton}>
                 <MaterialIcons name="delete" size={24} color="red" />
@@ -153,37 +171,38 @@ const DictionaryScreen: React.FC = () => {
           </View>
         )}
       />
+  
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <TouchableOpacity 
-              style={styles.closeButton} 
-              onPress={() => setModalVisible(false)}
-            >
-              <MaterialIcons name="close" size={24} color="#888" />
+          <View style={[styles.modalContent, { backgroundColor: theme.cardBackground }]}>
+            <TouchableOpacity style={styles.closeButton} onPress={() => setModalVisible(false)}>
+              <MaterialIcons name="close" size={24} color={theme.placeholderTextColor} />
             </TouchableOpacity>
+  
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: theme.textColor, borderColor: theme.borderColor }]}
               placeholder="Digite o termo"
+              placeholderTextColor={theme.placeholderTextColor}
               value={termInput}
               onChangeText={setTermInput}
             />
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: theme.textColor, borderColor: theme.borderColor }]}
               placeholder="Digite a definição"
+              placeholderTextColor={theme.placeholderTextColor}
               value={definitionInput}
               onChangeText={setDefinitionInput}
             />
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: theme.textColor, borderColor: theme.borderColor }]}
               placeholder="Digite um exemplo"
+              placeholderTextColor={theme.placeholderTextColor}
               value={exampleInput}
               onChangeText={setExampleInput}
             />
-            {/* Campo de linguagem substituído por Picker com 7 opções modernas */}
             <Picker
               selectedValue={languageInput}
-              style={styles.input}
+              style={[styles.input, { color: theme.textColor }]}
               onValueChange={(itemValue) => setLanguageInput(itemValue)}
             >
               <Picker.Item label="JavaScript" value="JavaScript" />
@@ -194,19 +213,22 @@ const DictionaryScreen: React.FC = () => {
               <Picker.Item label="Swift" value="Swift" />
               <Picker.Item label="Kotlin" value="Kotlin" />
             </Picker>
-            <TouchableOpacity style={styles.button} onPress={handleSaveTerm}>
-              <Text style={styles.buttonText}>
+  
+            <TouchableOpacity style={[styles.button, { backgroundColor: theme.buttonBackground }]} onPress={handleSaveTerm}>
+              <Text style={[styles.buttonText, { color: theme.buttonText }]}>
                 {editingTerm ? 'Salvar Alterações' : 'Adicionar Termo'}
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
-              <Text style={styles.buttonText}>Cancelar</Text>
+  
+            <TouchableOpacity style={[styles.cancelButton, { backgroundColor: theme.borderColor }]} onPress={() => setModalVisible(false)}>
+              <Text style={[styles.buttonText, { color: theme.textColor }]}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
     </View>
   );
+  
 };
 
 const styles = StyleSheet.create({

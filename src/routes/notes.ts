@@ -12,6 +12,20 @@ interface AtualizarNotaBody {
   tags?: string[];
 }
 
+// Função auxiliar para registrar atividade
+export async function registrarAtividade(userId: string, descricao: string, acao: string) {
+  try {
+    await db.collection('atividades').add({
+      userId,
+      description: descricao,
+      action: acao,
+      createdAt: new Date(), // Usamos a data atual
+    });
+  } catch (error) {
+    console.error('Erro ao registrar atividade:', error);
+  }
+}
+
 export default async function notasRoutes(app: FastifyInstance) {
   // Adicionar CORS para permitir requisições do frontend
   app.addHook('onRequest', (req, reply, done) => {
@@ -41,6 +55,12 @@ export default async function notasRoutes(app: FastifyInstance) {
       });
 
       console.log('Nota criada com sucesso:', newNote.id);
+
+      // Registra a atividade de criação de nota com mensagem natural
+      const descricao = `Anotação criada com sucesso.`;
+      const acao = "Criar Nota";
+      await registrarAtividade(usuarioId, descricao, acao);
+
       return reply.status(201).send({ message: 'Nota salva com sucesso.', id: newNote.id });
     } catch (error) {
       console.error('Erro ao salvar nota:', error);
@@ -77,6 +97,28 @@ export default async function notasRoutes(app: FastifyInstance) {
     }
   });
 
+  // 🔍 Buscar anotação por ID
+  app.get('/anotacoes/:id', async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    const { id } = req.params;
+
+    if (!id) {
+      return reply.status(400).send({ message: 'ID da anotação não fornecido.' });
+    }
+
+    try {
+      const doc = await db.collection('notas').doc(id).get();
+
+      if (!doc.exists) {
+        return reply.status(404).send({ message: 'Anotação não encontrada.' });
+      }
+
+      return reply.send({ id: doc.id, ...doc.data() });
+    } catch (error) {
+      console.error('Erro ao buscar anotação por ID:', error);
+      return reply.status(500).send({ message: 'Erro interno ao buscar anotação.', error: String(error) });
+    }
+  });
+
   // Atualizar uma anotação
   app.put('/notas/:id', async (req: FastifyRequest<{ Params: { id: string }; Body: AtualizarNotaBody }>, reply: FastifyReply) => {
     console.log('Recebendo requisição PUT em /notas:', req.params, req.body);
@@ -99,6 +141,14 @@ export default async function notasRoutes(app: FastifyInstance) {
       });
 
       console.log(`Nota ${id} atualizada com sucesso.`);
+
+      // Registra a atividade de atualização de nota com mensagem natural
+      const notaData = notaDoc.data();
+      const usuarioId = notaData?.usuarioId || 'sistema';
+      const descricao = `Anotação atualizada com sucesso.`;
+      const acao = "Atualizar Nota";
+      await registrarAtividade(usuarioId, descricao, acao);
+
       return reply.status(200).send({ message: 'Nota atualizada com sucesso.' });
     } catch (error) {
       console.error('Erro ao atualizar nota:', error);
@@ -121,8 +171,17 @@ export default async function notasRoutes(app: FastifyInstance) {
         return reply.status(404).send({ message: 'Nota não encontrada.' });
       }
 
+      const notaData = notaDoc.data();
+      const usuarioId = notaData?.usuarioId || 'sistema';
+
       await notaRef.delete();
       console.log(`Nota ${id} removida com sucesso.`);
+
+      // Registra a atividade de deleção de nota com mensagem natural
+      const descricao = `Anotação removida com sucesso.`;
+      const acao = "Deletar Nota";
+      await registrarAtividade(usuarioId, descricao, acao);
+
       return reply.status(200).send({ message: 'Nota removida com sucesso.' });
     } catch (error) {
       console.error('Erro ao deletar nota:', error);

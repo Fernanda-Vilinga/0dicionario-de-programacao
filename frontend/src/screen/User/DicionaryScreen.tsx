@@ -8,8 +8,16 @@ import HeaderComum from '../HeaderComum';
 import API_BASE_URL from 'src/config';
 import { Picker } from '@react-native-picker/picker';
 import { ThemeContext } from 'src/context/ThemeContext'; // Importa o contexto de tema
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 const DicionarioHome = () => {
+  interface TermoItem {
+    id: string;
+    termo: string;
+    definicao: string;
+    linguagem?: string;
+    exemplos?: string[];
+  }
+  
   const { theme } = useContext(ThemeContext); // Obtém o tema atual
   const [termo, setTermo] = useState('');
   const [resultados, setResultados] = useState<any[]>([]);
@@ -31,18 +39,37 @@ const DicionarioHome = () => {
   const carregarTodosOsTermos = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/dicionario/todos`);
-      if (!response.ok) throw new Error('Erro ao buscar termos.');
-      const data = await response.json();
-      const dadosOrdenados = ordenarTermos(data);
+      const termosResponse = await fetch(`${API_BASE_URL}/dicionario/todos`);
+      if (!termosResponse.ok) throw new Error('Erro ao buscar termos.');
+      const termosData = await termosResponse.json();
+  
+      const usuarioId = await AsyncStorage.getItem('usuarioId'); // 🔑 Buscando o ID do usuário
+      if (!usuarioId) {
+        Alert.alert('Erro', 'Usuário não autenticado.');
+        return;
+      }
+      const favoritosResponse = await fetch(`${API_BASE_URL}/favoritos/${usuarioId}`);
+      if (!favoritosResponse.ok) throw new Error('Erro ao buscar favoritos.');
+      const favoritosData = await favoritosResponse.json(); // { termos: [], anotacoes: [] }
+  
+      // Atualiza estado de favoritos com base nos IDs recebidos
+      const favoritosMap: { [key: string]: boolean } = {};
+      favoritosData.termos.forEach((id: string) => {
+        favoritosMap[id] = true;
+      });
+  
+      const dadosOrdenados = ordenarTermos(termosData);
       setResultados(dadosOrdenados);
+      setFavoritos(favoritosMap);
+  
     } catch (error) {
-      console.error('Erro ao carregar termos:', error);
-      Alert.alert("Erro", "Não foi possível carregar os termos.");
+      console.error('Erro ao carregar termos e favoritos:', error);
+      Alert.alert("Erro", "Não foi possível carregar os dados.");
     } finally {
       setLoading(false);
     }
   };
+  
 
   const pesquisarTermo = async () => {
     setLoading(true);
@@ -68,12 +95,43 @@ const DicionarioHome = () => {
     }
   };
 
-  const alternarFavorito = (id: string) => {
-    setFavoritos((prev) => ({
-      ...prev,
-      [id]: !prev[id]
-    }));
+  const alternarFavoritoTermo = async (termoItem: TermoItem) => {
+    const usuarioId = await AsyncStorage.getItem('usuarioId');
+    if (!usuarioId) return;
+  
+    try {
+      if (favoritos[termoItem.id]) {
+        await fetch(`${API_BASE_URL}/favoritos`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            usuarioId,
+            tipo: 'termo',
+            id: termoItem.id,
+          }),
+        });
+      } else {
+        await fetch(`${API_BASE_URL}/favoritos`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            usuarioId,
+            tipo: 'termo',
+            id: termoItem.id,
+          }),
+        });
+      }
+  
+      setFavoritos((prev) => ({
+        ...prev,
+        [termoItem.id]: !prev[termoItem.id],
+      }));
+    } catch (error) {
+      console.error("Erro ao alternar favorito:", error);
+    }
   };
+  
+  
 
   const falarTermo = (texto: string) => {
     if (Platform.OS === 'web') {
@@ -153,13 +211,14 @@ const DicionarioHome = () => {
                   />
                 </TouchableOpacity>
               </View>
-              <TouchableOpacity onPress={() => alternarFavorito(item.id)}>
-                <MaterialIcons 
-                  name={favoritos[item.id] ? "favorite" : "favorite-border"} 
-                  size={24} 
-                  color={favoritos[item.id] ? "red" : theme.textColor} 
-                />
-              </TouchableOpacity>
+              <TouchableOpacity onPress={() => alternarFavoritoTermo(item)}>
+  <MaterialIcons 
+    name={favoritos[item.id] ? "favorite" : "favorite-border"} 
+    size={24} 
+    color={favoritos[item.id] ? "red" : theme.textColor} 
+  />
+</TouchableOpacity>
+
             </View>
             <Text style={[styles.definition, { color: theme.textColor }]}>{item.definicao}</Text>
             <Text style={[styles.language, { color: theme.textColor }]}>

@@ -10,47 +10,61 @@ interface Usuario {
   imagem?: string;
 }
 
+// (Opcional) Se desejar registrar atividade, use uma função similar à que usamos nas outras rotas:
+// function registrarAtividade(userId: string, descricao: string, acao: string) {
+//   db.collection('atividades').add({
+//     userId,
+//     description: descricao,
+//     action: acao,
+//     createdAt: new Date(),
+//   }).catch(error => {
+//     console.error('Erro ao registrar atividade:', error);
+//   });
+// }
+
 export default async function contactRoutes(app: FastifyInstance) {
   // Rota para buscar os contatos do usuário informado
   app.get('/contatos/:id', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as { id: string };
-
+    const { lastContactId, limit = 10 } = req.query as { lastContactId: string, limit: number };
+  
     try {
-      // Buscar o usuário na coleção "usuarios"
       const userDoc = await db.collection('usuarios').doc(id).get();
-
       if (!userDoc.exists) {
         return reply.status(404).send({ message: 'Usuário não encontrado' });
       }
-
+  
       const loggedUser = userDoc.data() as Usuario;
-      console.log('✅ Usuário encontrado:', loggedUser);
-
-      // Determinar o tipo oposto:
-      // Se o usuário for MENTOR, buscar contatos do tipo USER
-      // Se o usuário for USER, buscar contatos do tipo MENTOR
       const targetType = loggedUser.tipo_de_usuario === 'MENTOR' ? 'USER' : 'MENTOR';
-      console.log(`🔎 Buscando contatos do tipo: ${targetType}`);
-
-      // Buscar os contatos na coleção "usuarios"
-      const querySnapshot = await db.collection('usuarios')
+  
+      // Consulta com startAfter
+      let query = db.collection('usuarios')
         .where('tipo_de_usuario', '==', targetType)
-        .get();
-
+        .limit(limit);
+  
+      if (lastContactId) {
+        const lastContactDoc = await db.collection('usuarios').doc(lastContactId).get();
+        if (lastContactDoc.exists) {
+          query = query.startAfter(lastContactDoc);
+        }
+      }
+  
+      const querySnapshot = await query.get();
+  
       if (querySnapshot.empty) {
         return reply.status(404).send({ message: 'Nenhum contato encontrado.' });
       }
-
+  
       const contatos: Usuario[] = querySnapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
       })) as Usuario[];
-
-      console.log('✅ Contatos encontrados:', contatos);
+  
       return reply.send(contatos);
     } catch (error) {
-      console.error('❌ Erro ao buscar contatos:', error);
+      console.error('Erro ao buscar contatos:', error);
       return reply.status(500).send({ message: 'Erro interno ao buscar contatos.', error });
     }
   });
+  
 }

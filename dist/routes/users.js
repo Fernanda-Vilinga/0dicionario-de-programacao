@@ -14,37 +14,49 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = contactRoutes;
 const firebaseConfig_1 = __importDefault(require("../firebaseConfig"));
+// (Opcional) Se desejar registrar atividade, use uma função similar à que usamos nas outras rotas:
+// function registrarAtividade(userId: string, descricao: string, acao: string) {
+//   db.collection('atividades').add({
+//     userId,
+//     description: descricao,
+//     action: acao,
+//     createdAt: new Date(),
+//   }).catch(error => {
+//     console.error('Erro ao registrar atividade:', error);
+//   });
+// }
 function contactRoutes(app) {
     return __awaiter(this, void 0, void 0, function* () {
         // Rota para buscar os contatos do usuário informado
         app.get('/contatos/:id', (req, reply) => __awaiter(this, void 0, void 0, function* () {
             const { id } = req.params;
+            const { lastContactId, limit = 10 } = req.query;
             try {
-                // Buscar o usuário na coleção "usuarios"
                 const userDoc = yield firebaseConfig_1.default.collection('usuarios').doc(id).get();
                 if (!userDoc.exists) {
                     return reply.status(404).send({ message: 'Usuário não encontrado' });
                 }
                 const loggedUser = userDoc.data();
-                console.log('✅ Usuário encontrado:', loggedUser);
-                // Determinar o tipo oposto:
-                // Se o usuário for MENTOR, buscar contatos do tipo USER
-                // Se o usuário for USER, buscar contatos do tipo MENTOR
                 const targetType = loggedUser.tipo_de_usuario === 'MENTOR' ? 'USER' : 'MENTOR';
-                console.log(`🔎 Buscando contatos do tipo: ${targetType}`);
-                // Buscar os contatos na coleção "usuarios"
-                const querySnapshot = yield firebaseConfig_1.default.collection('usuarios')
+                // Consulta com startAfter
+                let query = firebaseConfig_1.default.collection('usuarios')
                     .where('tipo_de_usuario', '==', targetType)
-                    .get();
+                    .limit(limit);
+                if (lastContactId) {
+                    const lastContactDoc = yield firebaseConfig_1.default.collection('usuarios').doc(lastContactId).get();
+                    if (lastContactDoc.exists) {
+                        query = query.startAfter(lastContactDoc);
+                    }
+                }
+                const querySnapshot = yield query.get();
                 if (querySnapshot.empty) {
                     return reply.status(404).send({ message: 'Nenhum contato encontrado.' });
                 }
                 const contatos = querySnapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
-                console.log('✅ Contatos encontrados:', contatos);
                 return reply.send(contatos);
             }
             catch (error) {
-                console.error('❌ Erro ao buscar contatos:', error);
+                console.error('Erro ao buscar contatos:', error);
                 return reply.status(500).send({ message: 'Erro interno ao buscar contatos.', error });
             }
         }));

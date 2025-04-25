@@ -12,8 +12,25 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.registrarAtividade = registrarAtividade;
 exports.default = logoutRoutes;
 const firebaseConfig_1 = __importDefault(require("../../firebaseConfig"));
+// Função auxiliar para registrar atividade
+function registrarAtividade(userId, descricao, acao) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            yield firebaseConfig_1.default.collection('atividades').add({
+                userId,
+                description: descricao,
+                action: acao,
+                createdAt: new Date(), // Usamos a data atual
+            });
+        }
+        catch (error) {
+            console.error('Erro ao registrar atividade:', error);
+        }
+    });
+}
 function logoutRoutes(app) {
     return __awaiter(this, void 0, void 0, function* () {
         app.post("/auth/logout", (req, reply) => __awaiter(this, void 0, void 0, function* () {
@@ -23,9 +40,19 @@ function logoutRoutes(app) {
                     return reply.status(400).send({ message: "ID do usuário não informado." });
                 }
                 console.log("UserId no Logout:", usuarioId);
+                const userDoc = yield firebaseConfig_1.default.collection("usuarios").doc(usuarioId).get();
+                if (!userDoc.exists) {
+                    return reply.status(404).send({ message: "Usuário não encontrado." });
+                }
+                const userData = userDoc.data();
+                const nomeParaRegistro = (userData === null || userData === void 0 ? void 0 : userData.nome) || "Usuário";
                 yield firebaseConfig_1.default.collection("usuarios").doc(usuarioId).update({
                     online: false,
                 });
+                // Descrição mais amigável
+                const descricao = `${nomeParaRegistro} fez logout.`;
+                const acao = "Logout";
+                yield registrarAtividade(usuarioId, descricao, acao);
                 return reply.send({ message: "Logout bem-sucedido" });
             }
             catch (error) {

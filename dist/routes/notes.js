@@ -12,8 +12,25 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.registrarAtividade = registrarAtividade;
 exports.default = notasRoutes;
 const firebaseConfig_1 = __importDefault(require("../firebaseConfig"));
+// Função auxiliar para registrar atividade
+function registrarAtividade(userId, descricao, acao) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            yield firebaseConfig_1.default.collection('atividades').add({
+                userId,
+                description: descricao,
+                action: acao,
+                createdAt: new Date(), // Usamos a data atual
+            });
+        }
+        catch (error) {
+            console.error('Erro ao registrar atividade:', error);
+        }
+    });
+}
 function notasRoutes(app) {
     return __awaiter(this, void 0, void 0, function* () {
         // Adicionar CORS para permitir requisições do frontend
@@ -39,6 +56,10 @@ function notasRoutes(app) {
                     dataCriacao: new Date(),
                 });
                 console.log('Nota criada com sucesso:', newNote.id);
+                // Registra a atividade de criação de nota com mensagem natural
+                const descricao = `Anotação criada com sucesso.`;
+                const acao = "Criar Nota";
+                yield registrarAtividade(usuarioId, descricao, acao);
                 return reply.status(201).send({ message: 'Nota salva com sucesso.', id: newNote.id });
             }
             catch (error) {
@@ -69,6 +90,24 @@ function notasRoutes(app) {
                 return reply.status(500).send({ message: 'Erro ao buscar notas.', error: String(error) });
             }
         }));
+        // 🔍 Buscar anotação por ID
+        app.get('/anotacoes/:id', (req, reply) => __awaiter(this, void 0, void 0, function* () {
+            const { id } = req.params;
+            if (!id) {
+                return reply.status(400).send({ message: 'ID da anotação não fornecido.' });
+            }
+            try {
+                const doc = yield firebaseConfig_1.default.collection('notas').doc(id).get();
+                if (!doc.exists) {
+                    return reply.status(404).send({ message: 'Anotação não encontrada.' });
+                }
+                return reply.send(Object.assign({ id: doc.id }, doc.data()));
+            }
+            catch (error) {
+                console.error('Erro ao buscar anotação por ID:', error);
+                return reply.status(500).send({ message: 'Erro interno ao buscar anotação.', error: String(error) });
+            }
+        }));
         // Atualizar uma anotação
         app.put('/notas/:id', (req, reply) => __awaiter(this, void 0, void 0, function* () {
             console.log('Recebendo requisição PUT em /notas:', req.params, req.body);
@@ -83,6 +122,12 @@ function notasRoutes(app) {
                 }
                 yield notaRef.update(Object.assign(Object.assign({}, (conteudo && { conteudo })), (tags && { tags })));
                 console.log(`Nota ${id} atualizada com sucesso.`);
+                // Registra a atividade de atualização de nota com mensagem natural
+                const notaData = notaDoc.data();
+                const usuarioId = (notaData === null || notaData === void 0 ? void 0 : notaData.usuarioId) || 'sistema';
+                const descricao = `Anotação atualizada com sucesso.`;
+                const acao = "Atualizar Nota";
+                yield registrarAtividade(usuarioId, descricao, acao);
                 return reply.status(200).send({ message: 'Nota atualizada com sucesso.' });
             }
             catch (error) {
@@ -101,8 +146,14 @@ function notasRoutes(app) {
                     console.warn(`Nota com ID ${id} não encontrada.`);
                     return reply.status(404).send({ message: 'Nota não encontrada.' });
                 }
+                const notaData = notaDoc.data();
+                const usuarioId = (notaData === null || notaData === void 0 ? void 0 : notaData.usuarioId) || 'sistema';
                 yield notaRef.delete();
                 console.log(`Nota ${id} removida com sucesso.`);
+                // Registra a atividade de deleção de nota com mensagem natural
+                const descricao = `Anotação removida com sucesso.`;
+                const acao = "Deletar Nota";
+                yield registrarAtividade(usuarioId, descricao, acao);
                 return reply.status(200).send({ message: 'Nota removida com sucesso.' });
             }
             catch (error) {

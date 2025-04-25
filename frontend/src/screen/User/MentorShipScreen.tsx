@@ -19,9 +19,11 @@ type RootStackParamList = {
   Mentoria: undefined;
   Mentores: { area: string; subarea?: string };
   Chat: undefined;
+  // ... outras rotas
+  VerSessao: undefined;
 };
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Mentoria'>;
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 type Category = {
   id: string;
@@ -46,7 +48,8 @@ import { ThemeContext } from 'src/context/ThemeContext';
 const MentoriaScreen: React.FC = () => {
   const [areaSelecionada, setAreaSelecionada] = useState<string | null>(null);
   const [subareaSelecionada, setSubareaSelecionada] = useState<string | null>(null);
-  const navigation = useNavigation<NavigationProp>();
+  // Alterar o tipo de navegação para usar o RootStackParamList completo
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { theme } = useContext(ThemeContext);
 
   const selecionarArea = (area: string) => {
@@ -65,7 +68,12 @@ const MentoriaScreen: React.FC = () => {
     }
   };
 
-  // Botão para acessar o chat é adicionado sem interferir nas demais funcionalidades
+  // Função específica para acessar a tela de "Ver Sessões"
+  const irParaVerSessao = () => {
+    navigation.navigate('VerSessao');
+  };
+
+  // Botão para acessar o Chat
   const irParaChat = () => {
     navigation.navigate('Chat');
   };
@@ -73,8 +81,15 @@ const MentoriaScreen: React.FC = () => {
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
       <HeaderComum screenName="Mentoria" />
-      
-      {/* Novo botão para acessar o Chat */}
+      {/* Botão "Ver sessões" com o ícone ajustado */}
+      <TouchableOpacity 
+        style={[styles.chatButton, { backgroundColor: theme.buttonBackground }]} 
+        onPress={irParaVerSessao}
+      >
+        <Ionicons name="calendar-outline" size={24} color="#fff" />
+        <Text style={[styles.chatButtonText, { color: theme.buttonText }]}>Ver sessões</Text>
+      </TouchableOpacity>
+      {/* Botão para acessar o Chat */}
       <TouchableOpacity style={[styles.chatButton, { backgroundColor: theme.buttonBackground }]} onPress={irParaChat}>
         <Ionicons name="chatbubble-ellipses" size={24} color="#fff" />
         <Text style={[styles.chatButtonText, { color: theme.buttonText }]}>Ir para Chat</Text>

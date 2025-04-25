@@ -44,15 +44,28 @@ const BlocoDeNotasScreen = ({ navigation }: any) => {
   const carregarNotas = async (id: string) => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/notas?usuarioId=${id}`);
-      setNotas(response.data);
+      // Busca notas e favoritos simultaneamente
+      const [notasRes, favoritosRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/notas?usuarioId=${id}`),
+        axios.get(`${API_BASE_URL}/favoritos/${id}`),
+      ]);
+  
+      const notasData = notasRes.data;
+      const favoritosIds = favoritosRes.data.anotacoes; // array de IDs das notas favoritas
+  
+      const notasComFavorito = notasData.map((nota: Nota) => ({
+        ...nota,
+        favorita: favoritosIds.includes(nota.id),
+      }));
+  
+      setNotas(notasComFavorito);
     } catch (error) {
-      console.error("Erro ao carregar notas:", error);
+      console.error("Erro ao carregar notas e favoritos:", error);
     } finally {
       setLoading(false);
     }
   };
-
+  
   const adicionarNota = async () => {
     if (!usuarioId || novaNota.trim() === "") return;
 
@@ -97,15 +110,36 @@ const BlocoDeNotasScreen = ({ navigation }: any) => {
   };
 
   const alternarFavorito = async (nota: Nota) => {
+    if (!usuarioId) return;
+  
     try {
-      await axios.put(`${API_BASE_URL}/notas/${nota.id}`, { favorita: !nota.favorita });
+      if (nota.favorita) {
+        // Se já é favorita, remove
+        await axios.delete(`${API_BASE_URL}/favoritos`, {
+          data: {
+            usuarioId,
+            tipo: "anotacao",
+            id: nota.id,
+          },
+        });
+      } else {
+        // Se não é favorita, adiciona
+        await axios.post(`${API_BASE_URL}/favoritos`, {
+          usuarioId,
+          tipo: "anotacao",
+          id: nota.id,
+        });
+      }
+  
+      // Atualiza o estado local
       setNotas(notas.map((n) =>
         n.id === nota.id ? { ...n, favorita: !n.favorita } : n
       ));
     } catch (error) {
-      console.error("Erro ao favoritar nota:", error);
+      console.error("Erro ao alternar favorito:", error);
     }
   };
+  
 
   const removerNota = async (id: string) => {
     try {
@@ -275,11 +309,21 @@ const BlocoDeNotasScreen = ({ navigation }: any) => {
             >
               <View style={{ flex: 1 }}>
                 {Array.isArray(nota.tags) && nota.tags.length > 0 && (
-                  <Text style={dynamicStyles.notaTitulo}>
-                    {nota.tags.join(", ")}
-                  </Text>
+                 <Text style={[
+                  dynamicStyles.notaTitulo, 
+                  nota.favorita && { color: '#000' } // sobrescreve a cor se for favorita
+                ]}>
+                  {nota.tags.join(", ")}
+                </Text>
                 )}
-                <Text style={dynamicStyles.notaDescricao}>{nota.conteudo}</Text>
+              <Text style={[
+  dynamicStyles.notaDescricao, 
+  nota.favorita && { color: '#000' }
+]}>
+  {nota.conteudo}
+</Text>
+
+                
               </View>
               <View style={dynamicStyles.acoesContainer}>
                 <TouchableOpacity onPress={() => alternarFavorito(nota)}>

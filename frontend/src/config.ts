@@ -4,3 +4,4 @@ const API_BASE_URL = 'http://192.168.179.23:3030'; // Use o IP do model S 4G
 
 
 export default API_BASE_URL;
+

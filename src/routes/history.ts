@@ -122,12 +122,45 @@ export default async function dashboardRoutes(app: FastifyInstance) {
       return reply.status(500).send({ message: 'Erro ao carregar dados do dashboard' });
     }
   });
-}
+  
+ // Nova rota: Buscar atividade por ID
+ app.get('/activities/user/:userId', async (request, reply) => {
+  const { userId } = request.params as { userId: string };
 
+  try {
+    // Consulta filtrando apenas pelo userId
+    const activitiesSnapshot = await db.collection('atividades')
+      .where('userId', '==', userId)
+      .get();
+
+    const userActivities = activitiesSnapshot.docs.map((doc) => {
+      const data = doc.data();
+
+      // Formatação opcional da data, se disponível
+      const activityTime = data?.createdAt && data.createdAt.seconds
+        ? new Date(data.createdAt.seconds * 1000).toLocaleTimeString('pt-BR')
+        : 'Hora não disponível';
+
+      return {
+        id: doc.id,
+        description: data.description || 'Sem descrição',
+        action: data.action || 'Sem ação',
+        time: activityTime,
+        userId: data.userId || 'Usuário não identificado',
+      };
+    });
+
+    return reply.send({ activities: userActivities });
+  } catch (error) {
+    console.error('Erro ao buscar atividades por userId:', error);
+    return reply.status(500).send({ message: 'Erro ao carregar atividades' });
+  }
+});
 // Função auxiliar para formatar o Timestamp
 const formatTimestamp = (timestamp: any) => {
   if (timestamp && timestamp.seconds) {
     return new Date(timestamp.seconds * 1000).toLocaleString('pt-BR');
   }
   return 'N/A'; // Retorna 'N/A' se não houver valor
+};
 };

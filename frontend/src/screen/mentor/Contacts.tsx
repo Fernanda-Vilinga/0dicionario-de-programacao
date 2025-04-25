@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { FlatList, TouchableOpacity, Image, Text } from 'react-native';
+import { FlatList, TouchableOpacity, Image, Text, View, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import useStyles from './StylesChat';
 import { ThemeContext } from 'src/context/ThemeContext';
@@ -19,7 +19,7 @@ interface ContactsProps {
 
 const Contacts: React.FC<ContactsProps> = ({ contacts, loading, onSelectContact, onOpenProfile }) => {
   const { theme } = useContext(ThemeContext);
-  const styles = useStyles(); // Se o hook useStyles não for dinâmico, você pode passar o tema ou sobrescrever com inline styles
+  const styles = useStyles();
 
   const renderItem = ({ item }: { item: Contact }) => (
     <TouchableOpacity
@@ -27,7 +27,6 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, loading, onSelectContact,
       onPress={() => onSelectContact(item)}
     >
       {item.profileImage ? (
-        // Ao clicar na imagem, abre o modal do perfil
         <TouchableOpacity onPress={() => onOpenProfile(item.id)}>
           <Image source={{ uri: item.profileImage }} style={styles.contactImage} />
         </TouchableOpacity>
@@ -38,12 +37,26 @@ const Contacts: React.FC<ContactsProps> = ({ contacts, loading, onSelectContact,
     </TouchableOpacity>
   );
 
+  if (loading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: theme.backgroundColor }]}>
+        <ActivityIndicator size="large" color={theme.primaryColor || '#004AAD'} />
+        
+      <Text style={[styles.contactName, { color: theme.textColor }]}>Carregando...</Text>
+      </View>
+    );
+  }
+
   return (
     <FlatList
       data={contacts}
       keyExtractor={(item) => item.id}
       renderItem={renderItem}
-      contentContainerStyle={[styles.contactsList, { backgroundColor: theme.backgroundColor }]}
+      contentContainerStyle={[
+        styles.contactsList,
+        { backgroundColor: theme.backgroundColor },
+        contacts.length === 0 && { flex: 1, justifyContent: 'center', alignItems: 'center' }, // evitar tela vazia "seca"
+      ]}
     />
   );
 };

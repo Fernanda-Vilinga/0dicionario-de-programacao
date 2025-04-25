@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
   Pressable,
+  ScrollView,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import HeaderComum from '../HeaderComum';
@@ -18,6 +19,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from 'src/types/types';
+import { ThemeContext } from 'src/context/ThemeContext';
+import { Dimensions } from 'react-native';
 
 interface User {
   id: string;
@@ -36,11 +39,13 @@ interface Solicitation {
   criadoEm: { _seconds: number; _nanoseconds: number };
 }
 
-// Define o ID do Super Admin
 const SUPER_ADMIN_ID = "mZkU0DJhVMqoIfychMd2";
-
+const windowHeight = Dimensions.get('window').height;
 const UsersScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { theme } = useContext(ThemeContext);
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [solicitacoes, setSolicitacoes] = useState<Solicitation[]>([]);
@@ -49,11 +54,10 @@ const UsersScreen = () => {
   const [removalModalVisible, setRemovalModalVisible] = useState(false);
   const [userToRemove, setUserToRemove] = useState<string | null>(null);
 
-  // Estados dos dados do usuário logado
+  // Estados do usuário logado
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
 
-  // Buscar dados do usuário logado (ID e email)
   useEffect(() => {
     const fetchCurrentUser = async () => {
       const uid = await AsyncStorage.getItem('usuarioId');
@@ -64,7 +68,6 @@ const UsersScreen = () => {
     fetchCurrentUser();
   }, []);
 
-  // Buscar usuários
   const fetchUsers = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/usuarios`);
@@ -77,7 +80,6 @@ const UsersScreen = () => {
     }
   };
 
-  // Buscar solicitações de promoção
   const fetchSolicitacoes = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/solicitacoes-promocao`);
@@ -88,7 +90,6 @@ const UsersScreen = () => {
     }
   };
 
-  // Buscar perfil do usuário e abrir modal de perfil
   const fetchUserProfile = async (id: string) => {
     try {
       const res = await fetch(`${API_BASE_URL}/perfil/${id}`);
@@ -105,24 +106,20 @@ const UsersScreen = () => {
     fetchSolicitacoes();
   }, []);
 
-  // Abre o modal de confirmação de remoção
   const removerUsuario = (email: string) => {
     setUserToRemove(email);
     setRemovalModalVisible(true);
   };
 
-  // Função que executa a remoção, impedindo que o Super Admin ou o próprio usuário sejam removidos
   const confirmarRemocaoUsuarios = async () => {
     if (!userToRemove) return;
     try {
       const storedUserEmail = await AsyncStorage.getItem('userEmail');
 
-      // Impede remoção do Super Admin
       if (userToRemove === SUPER_ADMIN_ID) {
         Alert.alert('Aviso', 'Não é permitido remover o Super Admin.');
         return;
       }
-      // Impede que o próprio usuário se remova
       if (storedUserEmail && userToRemove === storedUserEmail) {
         Alert.alert('Aviso', 'Você não pode se remover.');
         return;
@@ -138,7 +135,6 @@ const UsersScreen = () => {
       if (response.ok) {
         Alert.alert('Sucesso', result.message);
         fetchUsers();
-        // Se o email removido for o do usuário logado, forçar logout
         if (userToRemove === storedUserEmail) {
           await AsyncStorage.clear();
           navigation.replace('LoginRegister');
@@ -155,20 +151,15 @@ const UsersScreen = () => {
     }
   };
 
-  // Renderiza cada cartão de usuário
   const renderUserCard = ({ item }: { item: User }) => {
-    // Verifica se há uma solicitação de promoção pendente para este usuário
     const solicitacaoPendente = solicitacoes.find(
       (sol) => sol.email === item.email && sol.status === 'pendente'
     );
 
     const promoverUsuario = async () => {
       let rota = '';
-      if (item.tipo_de_usuario === 'USER') {
-        rota = '/auth/promovermentores';
-      } else if (item.tipo_de_usuario === 'MENTOR') {
-        rota = '/auth/promoveradmin';
-      }
+      if (item.tipo_de_usuario === 'USER') rota = '/auth/promovermentores';
+      else if (item.tipo_de_usuario === 'MENTOR') rota = '/auth/promoveradmin';
       if (!rota) return;
       try {
         const response = await fetch(`${API_BASE_URL}${rota}`, {
@@ -210,22 +201,11 @@ const UsersScreen = () => {
       }
     };
 
-    // Lógica para exibir o botão de remoção:
     let showRemoveButton = true;
-    // Se o usuário for ADMIN, somente o SUPER_ADMIN pode remover
-    if (item.tipo_de_usuario === 'ADMIN') {
-      if (!currentUserId || currentUserId !== SUPER_ADMIN_ID) {
-        showRemoveButton = false;
-      }
-    }
-    // Impede que o próprio usuário se remova
-    if (currentUserEmail && item.email === currentUserEmail) {
+    if (item.tipo_de_usuario === 'ADMIN' && (!currentUserId || currentUserId !== SUPER_ADMIN_ID))
       showRemoveButton = false;
-    }
-    // Impede a remoção do próprio Super Admin
-    if (item.id === SUPER_ADMIN_ID) {
-      showRemoveButton = false;
-    }
+    if (currentUserEmail && item.email === currentUserEmail) showRemoveButton = false;
+    if (item.id === SUPER_ADMIN_ID) showRemoveButton = false;
 
     return (
       <View style={styles.userCard}>
@@ -236,12 +216,12 @@ const UsersScreen = () => {
             <MaterialIcons name="person" size={50} color="#aaa" />
           )}
         </TouchableOpacity>
-
         <View style={styles.userDetails}>
-          <Text style={styles.userName}>{item.nome}</Text>
-          <Text style={styles.userEmail}>{item.email}</Text>
-          <Text style={styles.userRole}>Tipo: {item.tipo_de_usuario}</Text>
-
+          <Text style={[styles.userName, { color: theme.textColor }]}>{item.nome}</Text>
+          <Text style={[styles.userEmail, { color: theme.textColor }]}>{item.email}</Text>
+          <Text style={[styles.userRole, { color: theme.buttonBackground }]}>
+            Tipo: {item.tipo_de_usuario}
+          </Text>
           <View style={styles.actions}>
             {solicitacaoPendente && solicitacaoPendente.tipoSolicitado === 'MENTOR' && (
               <>
@@ -253,7 +233,6 @@ const UsersScreen = () => {
                 </TouchableOpacity>
               </>
             )}
-
             {solicitacaoPendente && solicitacaoPendente.tipoSolicitado === 'ADMIN' && (
               <>
                 <TouchableOpacity style={[styles.button, styles.promotionButton]} onPress={promoverUsuario}>
@@ -264,7 +243,6 @@ const UsersScreen = () => {
                 </TouchableOpacity>
               </>
             )}
-
             {showRemoveButton && (
               <TouchableOpacity
                 style={[styles.button, styles.removeButton]}
@@ -282,15 +260,25 @@ const UsersScreen = () => {
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#2979FF" />
+        <ActivityIndicator size="large" color={theme.buttonBackground} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    // Aqui definimos a altura para 100vh para garantir que o contêiner ocupe toda a tela na web
+    <View style={[styles.container, { minHeight: windowHeight }]}>
       <HeaderComum screenName="Gerenciar Usuários" />
-      <FlatList data={users} keyExtractor={(item) => item.id} renderItem={renderUserCard} />
+      {/* ScrollView com overflow auto para forçar a rolagem */}
+      <ScrollView style={{ flex: 1,  overflow: 'scroll' }} contentContainerStyle={{ flexGrow: 1 }}>
+        <View style={styles.listContainer}>
+          <FlatList
+            data={users}
+            keyExtractor={(item) => item.id}
+            renderItem={renderUserCard}
+          />
+        </View>
+      </ScrollView>
 
       {/* Modal de Confirmação de Remoção */}
       <Modal
@@ -305,10 +293,10 @@ const UsersScreen = () => {
             <Text style={styles.modalText}>
               Tem certeza que deseja remover o usuário com o e-mail:
             </Text>
-            <Text style={[styles.modalText, { fontWeight: 'bold', color: '#FF4B5C' }]}>
+            <Text style={[styles.modalText, { fontWeight: 'bold', color: theme.buttonBackground }]}>
               {userToRemove}
             </Text>
-            <View style={{ flexDirection: 'row', marginTop: 20, justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', marginTop: 20, justifyContent: 'space-between', width: '100%' }}>
               <Pressable
                 style={[styles.modalButton, { backgroundColor: '#ccc' }]}
                 onPress={() => {
@@ -357,128 +345,118 @@ const UsersScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    padding: 20, 
-    backgroundColor: '#f5f5f5' 
-  },
-  userCard: {
-    padding: 15,
-    marginVertical: 10,
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 3,
-    flexDirection: 'row',
-  },
-  userDetails: { 
-    marginLeft: 10,
-    flex: 1,
-  },
-  userName: { 
-    fontSize: 16, 
-    fontWeight: 'bold', 
-    color: '#333' 
-  },
-  userEmail: { 
-    fontSize: 14, 
-    color: '#555' 
-  },
-  actions: { 
-    flexDirection: 'row', 
-    marginTop: 10, 
-    justifyContent: 'space-around' 
-  },
-  button: { 
-    backgroundColor: '#2979FF', 
-    padding: 10, 
-    borderRadius: 5, 
-    marginHorizontal: 5 
-  },
-  removeButton: { 
-    backgroundColor: '#FF4B5C' 
-  },
-  rejectButton: { 
-    backgroundColor: '#FF9800' 
-  },
-  buttonText: { 
-    color: '#fff', 
-    fontWeight: 'bold' 
-  },
-  userRole: { 
-    fontSize: 13, 
-    color: '#2979FF' 
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: '#000000aa',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-  },
-  modalTitle: { 
-    fontWeight: 'bold', 
-    fontSize: 18, 
-    marginBottom: 12 
-  },
-  modalImage: { 
-    width: 100, 
-    height: 100, 
-    borderRadius: 50, 
-    marginVertical: 10 
-  },
-  modalText: { 
-    fontSize: 14, 
-    marginVertical: 4, 
-    textAlign: 'center' 
-  },
-  modalButton: {
-    marginTop: 20,
-    backgroundColor: '#2979FF',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  promotionButton: { 
-    backgroundColor: '#4CAF50', 
-    padding: 10, 
-    borderRadius: 5, 
-    marginTop: 10 
-  },
-  profilePhoto: { 
-    width: 50, 
-    height: 50, 
-    borderRadius: 25, 
-    backgroundColor: '#ddd', 
-    marginRight: 10 
-  },
-  userInfo: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    marginBottom: 10 
-  },
-  details: { 
-    flex: 1 
-  },
-  nomeUsuario: { 
-    fontWeight: 'bold', 
-    fontSize: 16, 
-    color: '#004AAD' 
-  },
-  emailUsuario: { 
-    fontSize: 14, 
-    color: '#555' 
-  },
-  lista: { 
-    paddingBottom: 100 
-  },
-});
+const getStyles = (theme: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 20,
+      backgroundColor: theme.dashboardBackground,
+    },
+    listContainer: {
+      paddingBottom: 16,
+      paddingHorizontal: 8,
+    },
+    userCard: {
+      padding: 15,
+      marginVertical: 10,
+      backgroundColor: theme.cardBackground,
+      borderRadius: 10,
+      shadowOpacity: 0.1,
+      shadowRadius: 5,
+      elevation: 3,
+      flexDirection: 'row',
+    },
+    userDetails: {
+      marginLeft: 10,
+      flex: 1,
+    },
+    userName: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: theme.textColor,
+    },
+    userEmail: {
+      fontSize: 14,
+      color: theme.textColor,
+    },
+    userRole: {
+      fontSize: 13,
+      color: theme.buttonBackground,
+      marginTop: 4,
+    },
+    actions: {
+      flexDirection: 'row',
+      marginTop: 10,
+      justifyContent: 'space-around',
+      flexWrap: 'wrap',
+    },
+    button: {
+      backgroundColor: theme.buttonBackground,
+      padding: 10,
+      borderRadius: 5,
+      marginHorizontal: 5,
+      marginTop: 5,
+    },
+    promotionButton: {
+      backgroundColor: '#4CAF50',
+    },
+    rejectButton: {
+      backgroundColor: '#FF9800',
+    },
+    removeButton: {
+      backgroundColor: '#FF4B5C',
+    },
+    buttonText: {
+      color: theme.buttonText,
+      fontWeight: 'bold',
+    },
+    profilePhoto: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      backgroundColor: '#ddd',
+      marginRight: 10,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    modalContent: {
+      backgroundColor: theme.dashboardBackground,
+      borderRadius: 16,
+      padding: 20,
+      alignItems: 'center',
+      width: '90%',
+    },
+    modalTitle: {
+      fontWeight: 'bold',
+      fontSize: 18,
+      marginBottom: 12,
+      color: theme.textColor,
+    },
+    modalImage: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+      marginVertical: 10,
+    },
+    modalText: {
+      fontSize: 14,
+      marginVertical: 4,
+      textAlign: 'center',
+      color: theme.textColor,
+    },
+    modalButton: {
+      marginTop: 20,
+      backgroundColor: theme.buttonBackground,
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 10,
+      alignItems: 'center',
+    },
+  });
 
 export default UsersScreen;

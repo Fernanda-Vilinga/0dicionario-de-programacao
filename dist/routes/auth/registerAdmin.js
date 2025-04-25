@@ -12,11 +12,28 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.registrarAtividade = registrarAtividade;
 exports.default = registerAdminRoutes;
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const firebaseConfig_1 = __importDefault(require("../../firebaseConfig"));
 const SECRET_KEY = 'seu_segredo_super_secreto'; // Troque por uma chave mais segura e armazene em variáveis de ambiente
+// Função auxiliar para registrar atividade
+function registrarAtividade(userId, descricao, acao) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            yield firebaseConfig_1.default.collection('atividades').add({
+                userId,
+                description: descricao,
+                action: acao,
+                createdAt: new Date(), // Usamos a data atual
+            });
+        }
+        catch (error) {
+            console.error('Erro ao registrar atividade:', error);
+        }
+    });
+}
 function registerAdminRoutes(app) {
     return __awaiter(this, void 0, void 0, function* () {
         app.post('/auth/registeradmin', (req, reply) => __awaiter(this, void 0, void 0, function* () {
@@ -37,6 +54,10 @@ function registerAdminRoutes(app) {
                     senha: hashedPassword,
                     tipo_de_usuario: 'ADMIN',
                 });
+                // Registra a atividade de cadastro de administrador com mensagem mais natural
+                const descricao = `Administrador ${nome} foi cadastrado com sucesso.`;
+                const acao = 'Cadastro de administrador';
+                yield registrarAtividade(newAdmin.id, descricao, acao);
                 // Gerar Token JWT
                 const token = jsonwebtoken_1.default.sign({ id: newAdmin.id, email, tipo_de_usuario: 'ADMIN' }, SECRET_KEY, {
                     expiresIn: '7d',

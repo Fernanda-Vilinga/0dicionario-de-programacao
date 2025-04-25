@@ -4,7 +4,19 @@ export interface Reaction {
     stars: number;
     createdAt: string;
   }
-  
+  // Exemplo: em src/types.ts ou similar
+export interface SessaoMentoria {
+  sessaoId: string;
+  usuarioId: string;
+  data: string;         // "YYYY-MM-DD"
+  horario: string;      // "HH:mm"
+  planoMentoria: string;
+  categoria: string;
+  status: string;       // "pendente", "aceita", "em_curso", "finalizada", etc.
+  motivoRejeicao?: string;
+  motivoCancelamento?: string;
+}
+
   export interface Post {
     id: string;
     user: {
@@ -56,9 +68,14 @@ export type RootStackParamList = {
   HomeScreen: undefined;
   ProfileMentor: undefined;
   Mentores: undefined;
-  Chat: undefined;
+  Chat: { sessao: SessaoMentoria };
   Audio: undefined;
   Player: undefined;
   ListaSessao: undefined;
+  VerSessao: undefined;
+  ChatArea: { sessao: SessaoMentoria };
+  ResetPassword: { usuarioId: string }; // <- aqui precisa do usuárioId
+  ChangePassword: undefined; 
+  Notificacoes: undefined;
 };
 

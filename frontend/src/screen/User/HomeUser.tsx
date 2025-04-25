@@ -148,8 +148,9 @@ const DashboardScreen = () => {
     </View>
   );
 };
-
 const TabNavigator = () => {
+  const { theme } = useContext(ThemeContext); // pegando o tema do contexto
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => {
@@ -160,13 +161,23 @@ const TabNavigator = () => {
           Quiz: "quiz",
           Mentoria: "school",
         } as const;
+
         return {
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name={icons[route.name as keyof typeof icons]} size={size} color={color} />
+            <MaterialIcons
+              name={icons[route.name as keyof typeof icons]}
+              size={size}
+              color={color}
+            />
           ),
-          tabBarActiveTintColor: "#2979FF",
-          tabBarInactiveTintColor: "gray",
-          tabBarStyle: { backgroundColor: "#fff", paddingBottom: 5, height: 60 },
+          tabBarActiveTintColor: theme.tabActiveColor,
+          tabBarInactiveTintColor: theme.tabInactiveColor,
+          tabBarStyle: {
+            backgroundColor: theme.tabBarBackground,
+            borderTopColor: theme.borderColor,
+            paddingBottom: 5,
+            height: 60,
+          },
         };
       }}
     >

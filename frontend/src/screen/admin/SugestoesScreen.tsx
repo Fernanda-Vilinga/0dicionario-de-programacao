@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
 import axios from 'axios';
 import API_BASE_URL from 'src/config';
 import Header from '../HeaderComum';
+import { ThemeContext } from 'src/context/ThemeContext';
 
 interface Sugestao {
   id: string;
@@ -29,6 +30,9 @@ interface Sugestao {
 }
 
 const SugestoesScreen = () => {
+  const { theme } = useContext(ThemeContext);
+  const styles = useMemo(() => getStyles(theme), [theme]);
+  
   const [sugestoes, setSugestoes] = useState<Sugestao[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
@@ -51,7 +55,6 @@ const SugestoesScreen = () => {
     try {
       const resposta = await axios.get(`${API_BASE_URL}/sugestoes`);
       const dados: Sugestao[] = resposta.data;
-
       const dadosEnriquecidos = await Promise.all(
         dados.map(async (sugestao) => {
           const perfil = await buscarPerfilUsuario(sugestao.usuarioId);
@@ -61,7 +64,6 @@ const SugestoesScreen = () => {
           };
         })
       );
-
       setSugestoes(dadosEnriquecidos);
     } catch (error) {
       console.error('Erro ao carregar sugestões:', error);
@@ -96,15 +98,6 @@ const SugestoesScreen = () => {
     carregarSugestoes();
   }, []);
 
-  if (carregando) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#004AAD" />
-        <Text>Carregando sugestões...</Text>
-      </View>
-    );
-  }
-
   // Função de renderItem do FlatList
   const renderItem = ({ item }: { item: Sugestao }) => (
     <View style={styles.card}>
@@ -127,18 +120,21 @@ const SugestoesScreen = () => {
           <Text style={styles.emailUsuario}>{item.usuario?.email || 'Email não disponível'}</Text>
         </View>
       </View>
-      <Text>
-        <Text style={styles.bold}>Categoria: </Text>
-        {item.categoria}
-      </Text>
-      <Text>
-        <Text style={styles.bold}>Descrição: </Text>
-        {item.descricao}
-      </Text>
-      <Text>
-        <Text style={styles.bold}>Status: </Text>
-        {item.status}
-      </Text>
+      <Text style={{ color: theme.textColor }}>
+  <Text style={[styles.bold]}>Categoria: </Text>
+  {item.categoria}
+</Text>
+
+<Text style={{ color: theme.textColor }}>
+  <Text style={styles.bold}>Descrição: </Text>
+  {item.descricao}
+</Text>
+
+<Text style={{ color: theme.textColor }}>
+  <Text style={styles.bold}>Status: </Text>
+  {item.status}
+</Text>
+
       <View style={styles.botoes}>
         {item.status !== 'aceite' && (
           <Button title="Aprovar" onPress={() => atualizarStatus(item.id, 'aceite')} />
@@ -153,12 +149,20 @@ const SugestoesScreen = () => {
       <Header screenName="Sugestões" />
       <Text style={styles.titulo}>Sugestões Recebidas</Text>
       {erro ? <Text style={styles.erro}>{erro}</Text> : null}
-      <FlatList
-        data={sugestoes}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.lista}
-      />
+      {carregando ? (
+  <View style={styles.carregandoContainer}>
+    <ActivityIndicator size="large" color={theme.primaryColor} />
+    <Text style={{ color: theme.textColor, marginTop: 10 }}>Carregando sugestões...</Text>
+  </View>
+) : (
+  <FlatList
+    data={sugestoes}
+    keyExtractor={(item) => item.id}
+    renderItem={renderItem}
+    contentContainerStyle={styles.lista}
+  />
+)}
+
 
       {/* Modal de Perfil */}
       <Modal visible={modalVisivel} transparent animationType="slide">
@@ -184,114 +188,118 @@ const SugestoesScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: '#fff',
-  },
-  titulo: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2979FF',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  lista: {
-    paddingBottom: 100,
-  },
-  card: {
-    backgroundColor: '#f2f2f2',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 15,
-  },
-  bold: {
-    fontWeight: 'bold',
-  },
-  botoes: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  fotoPerfil: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 10,
-  },
-  detalhesUsuario: {
-    justifyContent: 'center',
-  },
-  nomeUsuario: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    color: '#004AAD',
-  },
-  emailUsuario: {
-    fontSize: 14,
-    color: '#555',
-  },
-  // Modal styles
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    width: '80%',
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-  },
-  modalImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    marginBottom: 10,
-  },
-  modalNome: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#004AAD',
-    marginBottom: 8,
-  },
-  modalEmail: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 16,
-  },
-  modalFechar: {
-    backgroundColor: '#2979FF',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  modalFecharTexto: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },erro: {
-    backgroundColor: '#ffe5e5',
-    color: '#b00020',
-    padding: 10,
-    borderRadius: 6,
-    marginBottom: 10,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  
-});
+const getStyles = (theme: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 20,
+      backgroundColor: theme.backgroundColor, // Utiliza o background definido no tema
+    },
+    titulo: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: theme.buttonBackground, // Exemplo: cor do título baseada no tema
+      marginBottom: 20,
+      textAlign: 'center',
+    },
+    erro: {
+      backgroundColor: '#ffe5e5',
+      color: '#b00020',
+      padding: 10,
+      borderRadius: 6,
+      marginBottom: 10,
+      fontSize: 14,
+      fontWeight: '500',
+    },
+    lista: {
+      paddingBottom: 100,
+    },
+    card: {
+     
+      padding: 15,
+      borderRadius: 8,
+      marginBottom: 15,
+    },
+    bold: {
+      fontWeight: 'bold',
+      
+    },
+    botoes: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 10,
+    },
+    userInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    fotoPerfil: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      marginRight: 10,
+    },
+    detalhesUsuario: {
+      justifyContent: 'center',
+    },
+    nomeUsuario: {
+      fontWeight: 'bold',
+      fontSize: 16,
+      color: theme.primaryColor,
+    },
+    emailUsuario: {
+      fontSize: 14,
+      color: theme.textColor,
+    },
+    // Modal styles
+    modalContainer: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContent: {
+      backgroundColor: theme.backgroundColor,
+      width: '80%',
+      borderRadius: 16,
+      padding: 20,
+      alignItems: 'center',
+    },
+    modalImage: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+      marginBottom: 10,
+    },
+    modalNome: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: theme.primaryColor,
+      marginBottom: 8,
+    },
+    modalEmail: {
+      fontSize: 16,
+      color: theme.textColor,
+      marginBottom: 16,
+    },
+    modalFechar: {
+      backgroundColor: theme.buttonBackground,
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+    },
+    modalFecharTexto: {
+      color: theme.buttonText,
+      fontWeight: 'bold',
+    },
+    carregandoContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginTop: 50,
+    },
+    
+  });
 
 export default SugestoesScreen;

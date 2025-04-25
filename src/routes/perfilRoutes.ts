@@ -1,18 +1,18 @@
 import { FastifyInstance } from 'fastify';
 import db from '../firebaseConfig';
 
-// Função auxiliar para registrar atividade
-async function registrarAtividade(userId: string, descricao: string, acao: string) {
-  try {
-    await db.collection('atividades').add({
+// Função auxiliar para registrar atividade (fire-and-forget)
+export function registrarAtividade(userId: string, descricao: string, acao: string) {
+  db.collection('atividades')
+    .add({
       userId,
       description: descricao,
       action: acao,
       createdAt: new Date(), // Usamos a data atual
+    })
+    .catch(error => {
+      console.error('Erro ao registrar atividade:', error);
     });
-  } catch (error) {
-    console.error('Erro ao registrar atividade:', error);
-  }
 }
 
 export default async function profileRoutes(app: FastifyInstance) {
@@ -68,11 +68,11 @@ export default async function profileRoutes(app: FastifyInstance) {
       // Realiza a atualização
       await userRef.update(updateData);
 
-      // Registra a atividade no Firestore
+      // Registra a atividade no Firestore de forma assíncrona (fire-and-forget)
       const nomeParaRegistro = nome || userData?.nome || 'Usuário';
       const descricao = `${nomeParaRegistro} atualizou seu perfil`;
       const acao = "Atualizar perfil";
-      await registrarAtividade(id, descricao, acao);
+      registrarAtividade(id, descricao, acao);
 
       console.log("Perfil atualizado e atividade registrada.");
       return reply.send({ message: 'Perfil atualizado com sucesso' });
@@ -84,7 +84,9 @@ export default async function profileRoutes(app: FastifyInstance) {
   // 🔥 Nova rota para buscar todos os mentores 🔥
   app.get('/mentores', async (req, reply) => {
     try {
-      const snapshot = await db.collection('usuarios').where('tipo_de_usuario', '==', 'MENTOR').get();
+      const snapshot = await db.collection('usuarios')
+        .where('tipo_de_usuario', '==', 'MENTOR')
+        .get();
       
       if (snapshot.empty) {
         return reply.status(404).send({ message: 'Nenhum mentor encontrado' });
