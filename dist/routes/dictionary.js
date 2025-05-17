@@ -23,7 +23,7 @@ function registrarAtividade(userId, descricao, acao) {
                 userId,
                 description: descricao,
                 action: acao,
-                createdAt: new Date(), // Usamos a data atual
+                createdAt: new Date(),
             });
         }
         catch (error) {
@@ -36,73 +36,74 @@ function dicionarioRoutes(app) {
         // 🔍 Rota para buscar um termo específico (prefix match + case sensitive)
         app.get('/dicionario/termos', (req, reply) => __awaiter(this, void 0, void 0, function* () {
             const { termo } = req.query;
-            if (!termo) {
+            if (!termo)
                 return reply.status(400).send({ message: 'Termo não fornecido.' });
-            }
             try {
                 const termoLower = termo.toLowerCase();
-                const termRef = firebaseConfig_1.default.collection('termos').where('termo_array', 'array-contains', termoLower);
-                const termSnapshot = yield termRef.get();
-                if (termSnapshot.empty) {
+                const termSnapshot = yield firebaseConfig_1.default.collection('termos')
+                    .where('termo_array', 'array-contains', termoLower)
+                    .get();
+                if (termSnapshot.empty)
                     return reply.status(404).send({ message: 'Nenhum termo encontrado.' });
-                }
                 const termos = termSnapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
                 return reply.send(termos);
             }
             catch (error) {
-                console.error("Erro ao buscar termo:", error);
+                console.error('Erro ao buscar termo:', error);
                 return reply.status(500).send({ message: 'Erro ao buscar termo' });
             }
         }));
         // 🔍 Rota para busca simples (substring search)
         app.get('/dicionario/termos/simples', (req, reply) => __awaiter(this, void 0, void 0, function* () {
             let { termo } = req.query;
-            if (!termo) {
+            if (!termo)
                 return reply.status(400).send({ message: 'Termo não fornecido.' });
-            }
             termo = termo.toLowerCase().trim();
             try {
-                const termSnapshot = yield firebaseConfig_1.default.collection('termos').get();
-                if (termSnapshot.empty) {
+                const snapshot = yield firebaseConfig_1.default.collection('termos').get();
+                if (snapshot.empty)
                     return reply.status(404).send({ message: 'Nenhum termo encontrado.' });
-                }
-                let termos = termSnapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
-                const resultado = termos.filter(t => t.termo_lower && t.termo_lower.includes(termo));
-                if (resultado.length === 0) {
+                const termos = snapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
+                const resultado = termos.filter(t => t.termo_lower.includes(termo));
+                if (resultado.length === 0)
                     return reply.status(404).send({ message: 'Nenhum termo encontrado.' });
-                }
                 return reply.send(resultado);
             }
             catch (error) {
-                console.error("Erro ao buscar termo simples:", error);
+                console.error('Erro ao buscar termo simples:', error);
                 return reply.status(500).send({ message: 'Erro ao buscar termo simples' });
             }
         }));
         // 📌 Rota para listar todos os termos cadastrados
         app.get('/dicionario/todos', (_, reply) => __awaiter(this, void 0, void 0, function* () {
             try {
-                const termRef = firebaseConfig_1.default.collection('termos');
-                const termSnapshot = yield termRef.get();
-                if (termSnapshot.empty) {
+                const snapshot = yield firebaseConfig_1.default.collection('termos').get();
+                if (snapshot.empty)
                     return reply.send([]);
-                }
-                const termos = termSnapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
+                const termos = snapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
                 return reply.send(termos);
             }
             catch (error) {
-                console.error("Erro ao buscar todos os termos:", error);
+                console.error('Erro ao buscar todos os termos:', error);
                 return reply.status(500).send({ message: 'Erro ao buscar os termos' });
             }
+        }));
+        // GET one term by id
+        app.get('/dicionario/termos/:id', (req, reply) => __awaiter(this, void 0, void 0, function* () {
+            const { id } = req.params;
+            const doc = yield firebaseConfig_1.default.collection('termos').doc(id).get();
+            if (!doc.exists) {
+                return reply.status(404).send({ message: 'Termo não encontrado' });
+            }
+            return reply.send(Object.assign({ id: doc.id }, doc.data()));
         }));
         // ✅ Rota para adicionar um termo e registrar a atividade
         app.post('/dicionario/termo', (req, reply) => __awaiter(this, void 0, void 0, function* () {
             const { termo, definicao, exemplos, linguagem, categoria } = req.body;
-            if (!termo || !definicao) {
+            if (!termo || !definicao)
                 return reply.status(400).send({ message: 'Preencha todos os campos obrigatórios.' });
-            }
             try {
-                // Adiciona o termo na coleção
-                const novoTermoRef = yield firebaseConfig_1.default.collection('termos').add({
+                const novoRef = yield firebaseConfig_1.default.collection('termos').add({
                     termo,
                     termo_lower: termo.toLowerCase(),
                     definicao,
@@ -110,34 +111,57 @@ function dicionarioRoutes(app) {
                     linguagem: linguagem || 'Geral',
                     categoria: categoria || 'Sem categoria',
                 });
-                // Define o userId para registro de atividade (utilizando header x-user-id, se existir)
                 const userId = req.headers['x-user-id'] || 'sistema';
-                // Mensagem de atividade mais natural
                 const descricao = `O termo '${termo}' foi adicionado com sucesso ao dicionário.`;
-                const acao = "Adicionar termo";
-                // Registra a atividade
+                const acao = 'Adicionar termo';
                 yield registrarAtividade(userId, descricao, acao);
-                return reply.status(201).send({ message: 'Termo adicionado com sucesso.', id: novoTermoRef.id });
+                return reply.status(201).send({ message: 'Termo adicionado com sucesso.', id: novoRef.id });
             }
             catch (error) {
-                console.error("Erro ao adicionar termo:", error);
+                console.error('Erro ao adicionar termo:', error);
                 return reply.status(500).send({ message: 'Erro ao adicionar termo.' });
             }
         }));
-        // 🔍 Rota para buscar um termo por ID
-        app.get('/dicionario/termos/:id', (req, reply) => __awaiter(this, void 0, void 0, function* () {
+        // PUT: atualizar termo
+        app.put('/dicionario/termo/:id', (req, reply) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
             const { id } = req.params;
+            const updates = req.body;
+            const userId = req.headers['x-user-id'] || 'sistema';
             try {
-                const doc = yield firebaseConfig_1.default.collection('termos').doc(id).get();
-                if (!doc.exists) {
+                const ref = firebaseConfig_1.default.collection('termos').doc(id);
+                const snap = yield ref.get();
+                if (!snap.exists)
                     return reply.status(404).send({ message: 'Termo não encontrado.' });
-                }
-                const termoEncontrado = Object.assign({ id: doc.id }, doc.data());
-                return reply.send(termoEncontrado);
+                yield ref.update(Object.assign(Object.assign({}, updates), { termo_lower: updates.termo ? updates.termo.toLowerCase() : (_a = snap.data()) === null || _a === void 0 ? void 0 : _a.termo_lower }));
+                const descricao = `Termo '${id}' atualizado com sucesso.`;
+                const acao = 'Atualizar termo';
+                yield registrarAtividade(userId, descricao, acao);
+                return reply.send({ message: 'Termo atualizado com sucesso.' });
             }
             catch (error) {
-                console.error("Erro ao buscar termo por ID:", error);
-                return reply.status(500).send({ message: 'Erro ao buscar termo por ID.' });
+                console.error('Erro ao atualizar termo:', error);
+                return reply.status(500).send({ message: 'Erro ao atualizar termo.' });
+            }
+        }));
+        // DELETE: remover termo
+        app.delete('/dicionario/termo/:id', (req, reply) => __awaiter(this, void 0, void 0, function* () {
+            const { id } = req.params;
+            const userId = req.headers['x-user-id'] || 'sistema';
+            try {
+                const ref = firebaseConfig_1.default.collection('termos').doc(id);
+                const snap = yield ref.get();
+                if (!snap.exists)
+                    return reply.status(404).send({ message: 'Termo não encontrado.' });
+                yield ref.delete();
+                const descricao = `Termo '${id}' removido com sucesso.`;
+                const acao = 'Deletar termo';
+                yield registrarAtividade(userId, descricao, acao);
+                return reply.send({ message: 'Termo deletado com sucesso.' });
+            }
+            catch (error) {
+                console.error('Erro ao deletar termo:', error);
+                return reply.status(500).send({ message: 'Erro ao deletar termo.' });
             }
         }));
     });

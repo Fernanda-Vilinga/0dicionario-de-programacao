@@ -23,13 +23,10 @@ import aboutRoutes from './routes/about';
 import mentorRoutes from './routes/users';
 import reportsRoutes from './routes/reports';
 import logoutRoutes from './routes/auth/logout';
-
-
-
+import notificationsRoutes from './routes/notifications';
 
 const app = Fastify({ logger: true });
 
-// 🔹 Configuração do CORS (deve vir antes das rotas!)
 app.register(fastifyCors, {
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -73,7 +70,7 @@ app.register(aboutRoutes);
 app.register(mentorRoutes);
 app.register(reportsRoutes);
 app.register(logoutRoutes);
-
+app.register(notificationsRoutes);
 
 // 🔹 Inicia o servidor
 const start = async () => {

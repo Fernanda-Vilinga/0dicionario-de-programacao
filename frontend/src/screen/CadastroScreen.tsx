@@ -1,3 +1,4 @@
+// --- CadastroScreen.tsx ---
 import React, { useState } from 'react';
 import {
   View,
@@ -12,6 +13,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import API_BASE_URL from 'src/config';
+import { MaterialIcons } from '@expo/vector-icons';
 
 // Definição das telas da navegação
 type RootStackParamList = {
@@ -19,12 +21,20 @@ type RootStackParamList = {
   LoginRegister: undefined;
   Dashboard: undefined;
 };
-
-type CadastroScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Dashboard'>;
+type CadastroScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  'Dashboard'
+>;
 
 const { width } = Dimensions.get('window');
+// calcula padding do botão do olho com cap de 10px
+const BASE_PADDING = width * 0.03;
+const MAX_PADDING = 10;
+const eyePadding = BASE_PADDING > MAX_PADDING ? MAX_PADDING : BASE_PADDING;
+// tamanho do ícone
+const ICON_SIZE = 24;
 
-// Expressões regulares para validação
+// Regex de validação
 const EMAIL_REGEX = /^[A-Za-z]{4,20}[0-9]@gmail\.com$/;
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,10}$/;
 
@@ -33,6 +43,8 @@ const CadastroScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmSenha, setConfirmSenha] = useState('');
+  const [showSenha, setShowSenha] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
   const [modalMessage, setModalMessage] = useState('');
@@ -45,40 +57,32 @@ const CadastroScreen: React.FC = () => {
   };
 
   const handleCadastro = async () => {
-    // 1. Checa campos preenchidos
-    if (!nome || !email || !senha || !confirmSenha) {
+    if (!nome || !email || !senha || !confirmSenha)
       return showError('Erro', 'Preencha todos os campos.');
-    }
-    // 2. Valida formato de email
-    if (!EMAIL_REGEX.test(email)) {
+    if (!EMAIL_REGEX.test(email))
       return showError(
         'Email inválido',
-        `O email deve ter:\n- 8 a 20 letras (A-Z ou a-z)\n- seguido de um dígito (0-9)\n- domínio @gmail.com`
+        'O email deve ter 4-20 letras, seguido de um dígito e @gmail.com'
       );
-    }
-    // 3. Valida formato de senha
-    if (!PASSWORD_REGEX.test(senha)) {
+    if (!PASSWORD_REGEX.test(senha))
       return showError(
         'Senha inválida',
-        `A senha deve ter de 6 a 10 caracteres,\nconter ao menos 1 letra e 1 número.`
+        'De 6 a 10 caracteres, pelo menos 1 letra e 1 número.'
       );
-    }
-    // 4. Confirmação de senha
-    if (senha !== confirmSenha) {
+    if (senha !== confirmSenha)
       return showError('Erro', 'As senhas não coincidem.');
-    }
 
-    // 5. Requisição de cadastro
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/registeruser`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome, email, senha }),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/auth/registeruser`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nome, email, senha }),
+        }
+      );
       const data = await response.json();
-
       if (response.ok) {
-        // Cadastro sucesso: navega
         navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
       } else {
         showError('Erro no cadastro', data.message || 'Tente novamente mais tarde.');
@@ -106,22 +110,56 @@ const CadastroScreen: React.FC = () => {
         value={email}
         onChangeText={setEmail}
       />
-      <TextInput
-        style={styles.input}
-        placeholder="Senha"
-        placeholderTextColor="#888"
-        secureTextEntry
-        value={senha}
-        onChangeText={setSenha}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Confirmar Senha"
-        placeholderTextColor="#888"
-        secureTextEntry
-        value={confirmSenha}
-        onChangeText={setConfirmSenha}
-      />
+
+      {/* Senha com ícone responsivo */}
+      <View style={styles.passwordWrapper}>
+  <TextInput
+    style={styles.inputField}
+    placeholder="Senha"
+    placeholderTextColor="#888"
+    value={senha}
+    onChangeText={setSenha}
+    secureTextEntry={!showSenha}
+    autoCapitalize="none"
+  />
+  <TouchableOpacity
+    style={[styles.eyeButton, { paddingHorizontal: eyePadding }]}
+    onPress={() => setShowSenha(!showSenha)}
+  >
+    <MaterialIcons
+      name={showSenha ? 'visibility' : 'visibility-off'}
+      size={ICON_SIZE}
+      color="#666"
+    />
+  </TouchableOpacity>
+</View>
+
+
+      {/* Confirmar senha com mesmo ajuste */}
+   
+      <View style={styles.passwordWrapper}>
+  <TextInput
+    style={styles.inputField}
+    placeholder="Confirmar Senha"
+    placeholderTextColor="#888"
+    value={confirmSenha}
+    onChangeText={setConfirmSenha}
+    secureTextEntry={!showConfirm}
+    autoCapitalize="none"
+  />
+  <TouchableOpacity
+    style={[styles.eyeButton, { paddingHorizontal: eyePadding }]}
+    onPress={() => setShowConfirm(!showConfirm)}
+  >
+    <MaterialIcons
+      name={showConfirm ? 'visibility' : 'visibility-off'}
+      size={ICON_SIZE}
+      color="#666"
+    />
+  </TouchableOpacity>
+</View>
+
+
       <TouchableOpacity style={styles.button} onPress={handleCadastro}>
         <Text style={styles.buttonText}>Cadastrar</Text>
       </TouchableOpacity>
@@ -173,11 +211,39 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     marginBottom: 15,
   },
+  passwordWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderRadius: 8,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#DDD',
+    overflow: 'hidden',
+  },
+  inputField: {
+    flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
+    padding: 12,
+    fontSize: 16,
+    color: '#000',
+ 
+  },
+ 
+  eyeButton: {
+    justifyContent: 'center',
+    borderLeftWidth: 1,
+    borderLeftColor: '#DDD',
+    borderTopRightRadius: 8,
+    borderBottomRightRadius: 8,
+  },
   button: {
     backgroundColor: '#2979FF',
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
+    marginTop: 10,
   },
   buttonText: {
     color: '#FFF',

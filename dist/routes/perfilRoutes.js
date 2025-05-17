@@ -12,22 +12,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.registrarAtividade = registrarAtividade;
 exports.default = profileRoutes;
 const firebaseConfig_1 = __importDefault(require("../firebaseConfig"));
-// Função auxiliar para registrar atividade (fire-and-forget)
-function registrarAtividade(userId, descricao, acao) {
-    firebaseConfig_1.default.collection('atividades')
-        .add({
-        userId,
-        description: descricao,
-        action: acao,
-        createdAt: new Date(), // Usamos a data atual
-    })
-        .catch(error => {
-        console.error('Erro ao registrar atividade:', error);
-    });
-}
+const notificationsservice_1 = require("./notificationsservice");
 function profileRoutes(app) {
     return __awaiter(this, void 0, void 0, function* () {
         // Rota para obter o perfil de um usuário específico
@@ -35,28 +22,27 @@ function profileRoutes(app) {
             const { id } = req.params;
             try {
                 const userDoc = yield firebaseConfig_1.default.collection('usuarios').doc(id).get();
-                if (!userDoc.exists) {
+                if (!userDoc.exists)
                     return reply.status(404).send({ message: 'Usuário não encontrado' });
-                }
                 return reply.send(userDoc.data());
             }
             catch (error) {
                 return reply.status(500).send({ message: 'Erro ao buscar perfil', error });
             }
         }));
-        // Rota para atualizar o perfil do usuário (com suporte para mentor)
+        // Rota para atualizar o perfil do usuário (com suporte para mentor e notificações)
         app.patch('/perfil/:id', (req, reply) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
             const { id } = req.params;
-            const { nome, bio, profileImage, sobre } = req.body;
+            const { nome, bio, profileImage, sobre, role } = req.body;
             try {
                 const userRef = firebaseConfig_1.default.collection('usuarios').doc(id);
                 const userDoc = yield userRef.get();
-                if (!userDoc.exists) {
-                    return reply.status(404).send({ message: 'Usuário não encontrado' });
-                }
-                const userData = userDoc.data();
-                const isMentor = (userData === null || userData === void 0 ? void 0 : userData.role) === 'mentor'; // Verifica se é mentor
-                // Atualiza os campos comuns a todos os usuários
+                if (!userDoc.exists)
+                    return reply.status(404).send({ message: 'Usuário não encontrado.' });
+                const prevData = userDoc.data();
+                const wasMentor = ((_a = prevData.tipo_de_usuario) === null || _a === void 0 ? void 0 : _a.toUpperCase()) === 'MENTOR';
+                const isMentor = ((role === null || role === void 0 ? void 0 : role.toUpperCase()) === 'MENTOR') || wasMentor;
                 const updateData = {};
                 if (nome)
                     updateData.nome = nome;
@@ -64,33 +50,34 @@ function profileRoutes(app) {
                     updateData.bio = bio;
                 if (profileImage)
                     updateData.profileImage = profileImage;
-                // Adiciona "sobre" apenas se for mentor e se o campo foi enviado
-                if (isMentor && sobre) {
+                if (isMentor && sobre)
                     updateData.sobre = sobre;
-                }
-                // Realiza a atualização
+                if (role)
+                    updateData.tipo_de_usuario = role.toUpperCase();
                 yield userRef.update(updateData);
-                // Registra a atividade no Firestore de forma assíncrona (fire-and-forget)
-                const nomeParaRegistro = nome || (userData === null || userData === void 0 ? void 0 : userData.nome) || 'Usuário';
-                const descricao = `${nomeParaRegistro} atualizou seu perfil`;
-                const acao = "Atualizar perfil";
-                registrarAtividade(id, descricao, acao);
-                console.log("Perfil atualizado e atividade registrada.");
+                const displayName = nome || prevData.nome || 'Usuário';
+                const descricao = `${displayName} atualizou seu perfil.`;
+                const acao = 'Atualizar perfil';
+                yield (0, notificationsservice_1.registrarAtividade)(id, descricao, acao);
+                // Notificar grupo oposto: users se mentor, mentors se user
+                const targetRole = isMentor ? 'user' : 'mentor';
+                let destinatarios = yield (0, notificationsservice_1.buscarUsuariosPorRole)(targetRole);
+                destinatarios = destinatarios.filter(uid => uid !== id);
+                if (destinatarios.length) {
+                    yield (0, notificationsservice_1.distribuirNotificacao)(destinatarios, acao, descricao);
+                }
                 return reply.send({ message: 'Perfil atualizado com sucesso' });
             }
             catch (error) {
                 return reply.status(500).send({ message: 'Erro ao atualizar perfil', error });
             }
         }));
-        // 🔥 Nova rota para buscar todos os mentores 🔥
+        // Nova rota para buscar todos os mentores
         app.get('/mentores', (req, reply) => __awaiter(this, void 0, void 0, function* () {
             try {
-                const snapshot = yield firebaseConfig_1.default.collection('usuarios')
-                    .where('tipo_de_usuario', '==', 'MENTOR')
-                    .get();
-                if (snapshot.empty) {
+                const snapshot = yield firebaseConfig_1.default.collection('usuarios').where('tipo_de_usuario', '==', 'MENTOR').get();
+                if (snapshot.empty)
                     return reply.status(404).send({ message: 'Nenhum mentor encontrado' });
-                }
                 const mentores = snapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
                 return reply.send(mentores);
             }

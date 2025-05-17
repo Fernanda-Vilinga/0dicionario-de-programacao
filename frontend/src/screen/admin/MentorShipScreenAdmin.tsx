@@ -108,7 +108,7 @@ const MentorshipScreenAdmin = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}><HeaderComum screenName="Admin - Sessões" /></View>
+      <View style={styles.header}><HeaderComum screenName="Sessões de Mentoria" /></View>
       <FlatList
         contentContainerStyle={styles.listContainer}
         data={sessions}

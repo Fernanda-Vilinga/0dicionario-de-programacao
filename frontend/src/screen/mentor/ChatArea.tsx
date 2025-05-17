@@ -144,7 +144,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1 , marginTop:20}}>
       {/* Header with info icon */}
       <View style={styles.chatHeader}>
   <TouchableOpacity onPress={voltarParaContatos} style={{ marginRight: 10 }}>

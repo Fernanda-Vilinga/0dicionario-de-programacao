@@ -14,17 +14,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = contactRoutes;
 const firebaseConfig_1 = __importDefault(require("../firebaseConfig"));
-// (Opcional) Se desejar registrar atividade, use uma função similar à que usamos nas outras rotas:
-// function registrarAtividade(userId: string, descricao: string, acao: string) {
-//   db.collection('atividades').add({
-//     userId,
-//     description: descricao,
-//     action: acao,
-//     createdAt: new Date(),
-//   }).catch(error => {
-//     console.error('Erro ao registrar atividade:', error);
-//   });
-// }
 function contactRoutes(app) {
     return __awaiter(this, void 0, void 0, function* () {
         // Rota para buscar os contatos do usuário informado

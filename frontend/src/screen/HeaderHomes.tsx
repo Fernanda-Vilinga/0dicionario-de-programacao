@@ -1,4 +1,4 @@
-import React, { useEffect , useState} from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -14,9 +14,11 @@ import { useNavigation, useTheme } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StackNavigationProp } from "@react-navigation/stack";
 import API_BASE_URL from "src/config";
+import { countUnreadNotifications } from "src/services/notifications";
 
 type RootStackParamList = {
   LoginRegister: undefined;
+  Notifications: undefined;
 };
 
 interface HeaderProps {
@@ -27,18 +29,30 @@ interface HeaderProps {
 const HeaderHome: React.FC<HeaderProps> = ({ screenName, onOpenSettings }) => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
+
   const [user, setUser] = useState<{ nome: string; profileImage: string | null }>({
     nome: "Carregando...",
     profileImage: null,
   });
-  
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const userData = await AsyncStorage.getItem("usuarioId");
-        if (!userData) return;
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
-        const response = await fetch(`${API_BASE_URL}/perfil/${userData}`);
+  // Função para buscar notificações não lidas
+  const loadUnread = useCallback(async () => {
+    try {
+      const count = await countUnreadNotifications();
+      setUnreadCount(count);
+    } catch (err) {
+      console.error("Erro ao contar notificações:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Busca perfil do usuário uma vez
+    (async () => {
+      try {
+        const userId = await AsyncStorage.getItem("usuarioId");
+        if (!userId) return;
+        const response = await fetch(`${API_BASE_URL}/perfil/${userId}`);
         const data = await response.json();
         if (response.ok) {
           setUser({
@@ -49,14 +63,19 @@ const HeaderHome: React.FC<HeaderProps> = ({ screenName, onOpenSettings }) => {
       } catch (error) {
         console.error("Erro ao buscar perfil:", error);
       }
-    };
+    })();
 
-    fetchUserProfile();
-  }, []);
+    // Carrega notificações e agenda polling automático
+    loadUnread();
+    const interval = setInterval(loadUnread, 30_000);
+
+    return () => clearInterval(interval); // limpeza ao desmontar
+  }, [loadUnread]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={[styles.container, { backgroundColor: colors.card }]}>
+        {/* Avatar e nome */}
         <View style={styles.userContainer}>
           {user.profileImage ? (
             <Image source={{ uri: user.profileImage }} style={styles.userImage} />
@@ -66,23 +85,42 @@ const HeaderHome: React.FC<HeaderProps> = ({ screenName, onOpenSettings }) => {
           <Text style={[styles.userName, { color: colors.text }]}>{user.nome}</Text>
         </View>
 
-        <Text
+        {/* Título da tela 
+         <Text
           style={[styles.screenName, { color: colors.text }]}
           numberOfLines={1}
           ellipsizeMode="tail"
         >
           {screenName}
         </Text>
+        */}
+       
 
+        {/* Ícones à direita */}
         <View style={styles.rightIcons}>
+          {/* Menu */}
           <TouchableOpacity style={styles.icon} onPress={onOpenSettings}>
             <Ionicons name="menu" size={26} color={colors.text} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.icon}>
-            <Ionicons name="notifications-sharp" size={26} color={colors.text} />
+
+          {/* Notificações */}
+          <TouchableOpacity
+            style={styles.icon}
+            onPress={() => navigation.navigate("Notifications")}
+          >
+            <View style={styles.relative}>
+              <Ionicons name="notifications-sharp" size={26} color={colors.text} />
+              {unreadCount > 0 && (
+                <View style={styles.badgeContainer}>
+                  <Text style={styles.badgeText}>{unreadCount}</Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
+
+          {/* Biblioteca */}
           <TouchableOpacity style={styles.icon}>
-            <MaterialIcons name="local-library" size={26} color="#2979FF" />
+            <MaterialIcons name="local-library" size={26} color={colors.text} />
           </TouchableOpacity>
         </View>
       </View>
@@ -90,7 +128,6 @@ const HeaderHome: React.FC<HeaderProps> = ({ screenName, onOpenSettings }) => {
   );
 };
 
-// Remova qualquer import de Notifications e hooks não utilizados
 const styles = StyleSheet.create({
   safeArea: {
     backgroundColor: "transparent",
@@ -132,6 +169,26 @@ const styles = StyleSheet.create({
   },
   icon: {
     padding: 5,
+  },
+  relative: {
+    position: "relative",
+  },
+  badgeContainer: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#FF3B30",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "bold",
   },
 });
 

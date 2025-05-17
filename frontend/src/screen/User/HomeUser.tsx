@@ -25,7 +25,7 @@ const DashboardScreen = () => {
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
       <HeaderHome 
-        screenName="Dicionário de Programação" 
+        screenName="" 
         onOpenSettings={() => setModalVisible(true)}
       />
 

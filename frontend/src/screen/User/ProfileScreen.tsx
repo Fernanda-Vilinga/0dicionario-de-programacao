@@ -198,7 +198,7 @@ const ProfileScreen = () => {
         flex: 1,
         marginLeft: 10,
         color: theme.textColor,
-        backgroundColor: theme.cardBackground, // Adicionado para alterar o fundo do Picker
+        backgroundColor: theme.backgroundColor, // Adicionado para alterar o fundo do Picker
       },
       iconRight: { 
         marginLeft: 8 

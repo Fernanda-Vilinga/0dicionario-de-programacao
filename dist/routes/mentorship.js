@@ -37,13 +37,13 @@ function criarDataHoraLocal(data, horario) {
  * Converte um timestamp do Firestore para objeto Date.
  * Se o valor já for Date ou string, tenta converter diretamente.
  */
+const firestore_1 = require("firebase-admin/firestore");
 function converterTimestampParaDate(timestamp) {
-    if (timestamp && timestamp._seconds != null) {
-        return new Date(timestamp._seconds * 1000);
+    if (timestamp instanceof firestore_1.Timestamp) {
+        return timestamp.toDate();
     }
-    else {
-        return new Date(timestamp);
-    }
+    // Se já for Date ou string/number convertível
+    return new Date(timestamp);
 }
 /**
  * Verifica e atualiza o status de uma sessão.
@@ -177,7 +177,7 @@ function mentoriaRoutes(app) {
                 yield firebaseConfig_1.default.collection('sessaoMentoria').doc(id).update({ status: 'rejeitada', motivoRejeicao: motivo });
                 // Registra atividade de rejeição (fire-and-forget)
                 const userId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || 'sistema';
-                const descricao = `Sessão de mentoria rejeitada. Motivo: ${motivo || 'não informado'}.`;
+                const descricao = `Sessão de mentoria cancelada. Motivo: ${motivo || 'não informado'}.`;
                 const acao = "Rejeitar Mentoria";
                 registrarAtividade(userId, descricao, acao);
                 return reply.send({ message: 'Mentoria rejeitada com sucesso.' });
@@ -196,8 +196,8 @@ function mentoriaRoutes(app) {
                 yield firebaseConfig_1.default.collection('sessaoMentoria').doc(id).update({ status: 'cancelada', motivoCancelamento: motivo });
                 // Registra atividade de cancelamento (fire-and-forget)
                 const userId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || 'sistema';
-                const descricao = `Sessão de mentoria cancelada. Motivo: ${motivo || 'não informado'}.`;
-                const acao = "Cancelar Mentoria";
+                const descricao = `Sessão de mentoria rejeitada. Motivo: ${motivo || 'não informado'}.`;
+                const acao = "Rejeitar Mentoria";
                 registrarAtividade(userId, descricao, acao);
                 return reply.send({ message: 'Mentoria cancelada com sucesso.' });
             }
@@ -213,7 +213,7 @@ function mentoriaRoutes(app) {
                 const mentorias = yield Promise.all(snapshot.docs.map((doc) => __awaiter(this, void 0, void 0, function* () {
                     const data = doc.data();
                     const novoStatus = yield verificarEAtualizarSessao(doc.id, data);
-                    return Object.assign(Object.assign({ id: doc.id }, data), { status: novoStatus });
+                    return Object.assign(Object.assign({ sessaoId: doc.id }, data), { status: novoStatus });
                 })));
                 return reply.send(mentorias);
             }
@@ -232,7 +232,7 @@ function mentoriaRoutes(app) {
                 }
                 const data = doc.data();
                 const novoStatus = yield verificarEAtualizarSessao(doc.id, data);
-                return reply.send(Object.assign(Object.assign({ id: doc.id }, data), { status: novoStatus }));
+                return reply.send(Object.assign(Object.assign({ sessaoId: doc.id }, data), { status: novoStatus }));
             }
             catch (error) {
                 console.error(error);
@@ -257,7 +257,7 @@ function mentoriaRoutes(app) {
                 const sessoes = yield Promise.all(snapshot.docs.map((doc) => __awaiter(this, void 0, void 0, function* () {
                     const data = doc.data();
                     const novoStatus = yield verificarEAtualizarSessao(doc.id, data);
-                    return Object.assign(Object.assign({ id: doc.id }, data), { status: novoStatus });
+                    return Object.assign(Object.assign({ sessaoId: doc.id }, data), { status: novoStatus });
                 })));
                 return reply.send({ sessoes });
             }
@@ -283,7 +283,7 @@ function mentoriaRoutes(app) {
                 const sessoes = yield Promise.all(snapshot.docs.map((doc) => __awaiter(this, void 0, void 0, function* () {
                     const data = doc.data();
                     const novoStatus = yield verificarEAtualizarSessao(doc.id, data);
-                    return Object.assign(Object.assign({ id: doc.id }, data), { status: novoStatus });
+                    return Object.assign(Object.assign({ sessaoId: doc.id }, data), { status: novoStatus });
                 })));
                 return reply.send({ sessoes });
             }

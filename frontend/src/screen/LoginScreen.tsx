@@ -1,5 +1,3 @@
-/* Ajuste em LoginScreen.tsx e SettingsScreen.tsx para suportar o parâmetro `tipo` em ResetPassword */
-
 // --- LoginScreen.tsx ---
 import React, { useState, useEffect } from "react";
 import {
@@ -15,6 +13,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import API_BASE_URL from "src/config";
+import { MaterialIcons } from "@expo/vector-icons";
 
 // Atualização no tipo de ResetPassword
 type RootStackParamList = {
@@ -32,13 +31,19 @@ type LoginScreenNavigationProp = StackNavigationProp<
 >;
 
 const { width } = Dimensions.get("window");
+// cálculo de padding dinamicamente com cap de 10px
+const BASE_PADDING = width * 0.03;
+const MAX_PADDING = 10;
+const eyePadding = BASE_PADDING > MAX_PADDING ? MAX_PADDING : BASE_PADDING;
+// tamanho do ícone (pode manter fixo ou adaptar)
+const ICON_SIZE = 24;
 
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [emailRecuperacao, setEmailRecuperacao] = useState("");
-
+  const [showPassword, setShowPassword] = useState(false);
   const navigation = useNavigation<LoginScreenNavigationProp>();
 
   useEffect(() => {
@@ -83,6 +88,16 @@ const LoginScreen: React.FC = () => {
           ["usuarioId", data.usuarioId],
         ]);
 
+        // marca usuário como online
+        await fetch(`${API_BASE_URL}/usuarios/${data.usuarioId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${data.token}`,
+          },
+          body: JSON.stringify({ online: true }),
+        });
+
         navigateToHome(normalizedUserType, data.usuarioId);
       } else {
         Alert.alert("Erro no login", data.message || "Tente novamente.");
@@ -110,23 +125,28 @@ const LoginScreen: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: emailRecuperacao }),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/auth/forgot-password`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: emailRecuperacao }),
+        }
+      );
 
       const data = await response.json();
 
       if (response.ok && data.usuarioId) {
         setShowModal(false);
-        // Passa `tipo: 'RESET'` ao navegar
         navigation.navigate("ResetPassword", {
           usuarioId: data.usuarioId,
-          tipo: 'RESET'
+          tipo: "RESET",
         });
       } else {
-        Alert.alert("Erro", data.message || "Não foi possível encontrar esse email.");
+        Alert.alert(
+          "Erro",
+          data.message || "Não foi possível encontrar esse email."
+        );
       }
     } catch (err) {
       console.error("Erro forgot password:", err);
@@ -143,25 +163,48 @@ const LoginScreen: React.FC = () => {
         value={email}
         onChangeText={setEmail}
       />
-      <TextInput
-        style={styles.input}
-        placeholder="Senha"
-        placeholderTextColor="#888"
-        secureTextEntry
-        value={senha}
-        onChangeText={setSenha}
-      />
-      <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+
+<View style={styles.passwordWrapper}>
+  <TextInput
+    style={styles.inputSenha}
+    placeholder="Senha"
+    placeholderTextColor="#888"
+    value={senha}
+    onChangeText={setSenha}
+    secureTextEntry={!showPassword}      
+    autoCapitalize="none"
+  />
+  <TouchableOpacity
+    style={[styles.eyeButton, { paddingHorizontal: eyePadding }]}
+    onPress={() => setShowPassword(prev => !prev)}
+  >
+    <MaterialIcons
+      name={showPassword ? "visibility" : "visibility-off"}
+      size={ICON_SIZE}
+      color="#666"
+    />
+  </TouchableOpacity>
+</View>
+
+
+      <TouchableOpacity
+        style={styles.loginButton}
+        onPress={handleLogin}
+      >
         <Text style={styles.loginButtonText}>Entrar</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => setShowModal(true)}>
-        <Text style={styles.esqueceuText}>Esqueceu a palavra passe?</Text>
+        <Text style={styles.esqueceuText}>
+          Esqueceu a palavra passe?
+        </Text>
       </TouchableOpacity>
 
       {showModal && (
         <View style={styles.modal}>
-          <Text style={{ marginBottom: 10 }}>Digite seu e-mail de recuperação:</Text>
+          <Text style={{ marginBottom: 10 }}>
+            Digite seu e-mail de recuperação:
+          </Text>
           <TextInput
             style={styles.input}
             placeholder="Email"
@@ -176,8 +219,15 @@ const LoginScreen: React.FC = () => {
           >
             <Text style={styles.loginButtonText}>Enviar</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowModal(false)} style={{ marginTop: 10 }}>
-            <Text style={{ color: "red", textAlign: 'center' }}>Cancelar</Text>
+          <TouchableOpacity
+            onPress={() => setShowModal(false)}
+            style={{ marginTop: 10 }}
+          >
+            <Text
+              style={{ color: "red", textAlign: "center" }}
+            >
+              Cancelar
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -207,6 +257,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: "#FFF",
     marginBottom: 15,
+  },
+  
+  inputSenha: {   flex: 1,
+    flexShrink: 1,      // permite encolher
+  minWidth: 0,        // essencial em RN para inputs dentro de flex
+         padding: 12,
+         fontSize: 16,
+         backgroundColor: "#FFF",
+       },
+  passwordWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#DDD",
+    borderRadius: 8,
+    marginBottom: 15,
+    backgroundColor: "#FFF",
+    overflow: "hidden", // impede que o ícone "vaze"
+  },
+  eyeButton: {
+    justifyContent: "center",
+    borderLeftWidth: 1,
+    borderLeftColor: "#DDD",
+    borderTopRightRadius: 8,
+    borderBottomRightRadius: 8,
   },
   loginButton: {
     backgroundColor: "#2979FF",

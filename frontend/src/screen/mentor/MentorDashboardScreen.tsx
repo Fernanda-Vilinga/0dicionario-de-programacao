@@ -261,7 +261,7 @@ const MentorDashboard = () => {
       return { nome: 'Desconhecido', profileImage: null };
     }
   };
-
+//1
   const processSessions = async (sessions: SessaoMentoria[]): Promise<SessaoMentoriaExtended[]> => {
     return Promise.all(
       sessions.map(async (sessao) => {

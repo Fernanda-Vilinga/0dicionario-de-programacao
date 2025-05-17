@@ -151,7 +151,7 @@ const SettingsScreenAdmin: React.FC = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}> 
-      <HeaderComum screenName="Definições (Admin)" />
+      <HeaderComum screenName="Definições " />
       <Text style={[styles.title, { color: theme.textColor }]}>Configurações do Admin</Text>
 
       <View style={styles.settingRow}>

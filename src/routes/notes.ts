@@ -58,6 +58,7 @@ export default async function notasRoutes(app: FastifyInstance) {
 
       // Registra a atividade de criação de nota com mensagem natural
       const descricao = `Anotação criada com sucesso.`;
+
       const acao = "Criar Nota";
       await registrarAtividade(usuarioId, descricao, acao);
 
@@ -84,6 +85,8 @@ export default async function notasRoutes(app: FastifyInstance) {
 
       if (snapshot.empty) {
         console.warn(`Nenhuma nota encontrada para o usuário: ${usuarioId}`);
+     
+        
         return reply.status(404).send({ message: 'Nenhuma nota encontrada.' });
       }
 
@@ -132,6 +135,8 @@ export default async function notasRoutes(app: FastifyInstance) {
 
       if (!notaDoc.exists) {
         console.warn(`Nota com ID ${id} não encontrada.`);
+     
+        
         return reply.status(404).send({ message: 'Nota não encontrada.' });
       }
 
@@ -139,13 +144,13 @@ export default async function notasRoutes(app: FastifyInstance) {
         ...(conteudo && { conteudo }),
         ...(tags && { tags }),
       });
-
       console.log(`Nota ${id} atualizada com sucesso.`);
 
       // Registra a atividade de atualização de nota com mensagem natural
       const notaData = notaDoc.data();
       const usuarioId = notaData?.usuarioId || 'sistema';
       const descricao = `Anotação atualizada com sucesso.`;
+
       const acao = "Atualizar Nota";
       await registrarAtividade(usuarioId, descricao, acao);
 
@@ -168,6 +173,8 @@ export default async function notasRoutes(app: FastifyInstance) {
 
       if (!notaDoc.exists) {
         console.warn(`Nota com ID ${id} não encontrada.`);
+
+
         return reply.status(404).send({ message: 'Nota não encontrada.' });
       }
 
@@ -179,6 +186,7 @@ export default async function notasRoutes(app: FastifyInstance) {
 
       // Registra a atividade de deleção de nota com mensagem natural
       const descricao = `Anotação removida com sucesso.`;
+
       const acao = "Deletar Nota";
       await registrarAtividade(usuarioId, descricao, acao);
 
@@ -189,3 +197,5 @@ export default async function notasRoutes(app: FastifyInstance) {
     }
   });
 }
+
+

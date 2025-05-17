@@ -1,3 +1,4 @@
+// --- SettingModal.tsx ---
 import React, { useState, useEffect, useContext } from "react";
 import { 
   View, 
@@ -19,7 +20,6 @@ import { ThemeContext } from "src/context/ThemeContext";
 interface UserProfile {
   email: string;
   tipo_de_usuario: string;
-  // outros campos se necessário...
 }
 
 interface SettingsModalProps {
@@ -39,13 +39,10 @@ const SettingModal: React.FC<SettingsModalProps> = ({ isVisible, onClose }) => {
   // Busca o perfil do usuário via ID
   const fetchUserProfile = async (usuarioId: string) => {
     try {
-      console.log("[DEBUG] Buscando perfil do usuário com ID:", usuarioId);
       const response = await fetch(`${API_BASE_URL}/perfil/${usuarioId}`);
       const data = await response.json();
-      console.log("[DEBUG] Perfil recebido:", data);
       setUserProfile(data);
     } catch (error) {
-      console.error("[ERROR] Erro ao buscar perfil:", error);
       Alert.alert("Erro", "Não foi possível carregar os dados do perfil.");
     }
   };
@@ -53,52 +50,42 @@ const SettingModal: React.FC<SettingsModalProps> = ({ isVisible, onClose }) => {
   // Verifica se há solicitação pendente para o e-mail do usuário
   const checkPromotionPending = async (email: string) => {
     try {
-      console.log("[DEBUG] Chamando endpoint para listar solicitações...");
       const response = await fetch(`${API_BASE_URL}/auth/solicitacoes-promocao`);
       const solicitacoes = await response.json();
-      console.log("[DEBUG] Solicitações recebidas:", solicitacoes);
       const pending = solicitacoes.some(
         (sol: any) => sol.email === email && sol.status === "pendente"
       );
-      console.log("[DEBUG] Existe solicitação pendente?:", pending);
       setPromotionPending(pending);
-    } catch (error) {
-      console.error("[ERROR] Erro ao buscar solicitações de promoção:", error);
+    } catch {
       Alert.alert("Erro", "Não foi possível verificar o status da promoção.");
     }
   };
 
-  // Sempre que o modal de promoção for aberto, busca o perfil e checa o status
+  // Ao abrir modal de promoção
   useEffect(() => {
     if (showModalPromocao) {
       (async () => {
         const usuarioId = await AsyncStorage.getItem("usuarioId");
-        if (usuarioId) {
-          await fetchUserProfile(usuarioId);
-        } else {
-          console.log("[DEBUG] ID do usuário não encontrado no AsyncStorage.");
-        }
+        if (usuarioId) await fetchUserProfile(usuarioId);
       })();
     }
   }, [showModalPromocao]);
 
-  // Sempre que o perfil for carregado, verifica se há solicitação pendente
+  // Após carregar perfil, checa promoções
   useEffect(() => {
-    if (userProfile && userProfile.email) {
+    if (userProfile?.email) {
       checkPromotionPending(userProfile.email);
     }
   }, [userProfile]);
 
-  // Solicita promoção usando os dados do perfil
+  // Solicita promoção
   const handleSolicitarPromocao = async () => {
     try {
-      console.log("[DEBUG] Iniciando solicitação de promoção...");
       const usuarioId = await AsyncStorage.getItem("usuarioId");
       if (!usuarioId) {
         Alert.alert("Erro", "ID do usuário não encontrado.");
         return;
       }
-      // Se o perfil não foi carregado, tenta buscá-lo
       if (!userProfile) {
         await fetchUserProfile(usuarioId);
         if (!userProfile) {
@@ -107,78 +94,63 @@ const SettingModal: React.FC<SettingsModalProps> = ({ isVisible, onClose }) => {
         }
       }
       const { email, tipo_de_usuario } = userProfile!;
-      console.log("[DEBUG] Perfil para promoção:", { email, tipo_de_usuario });
       const normalizedTipo = tipo_de_usuario.toUpperCase();
       if (normalizedTipo !== "USER" && normalizedTipo !== "MENTOR") {
-        Alert.alert("Erro", "Você já está no nível máximo (ADMIN) ou o tipo está inválido.");
+        Alert.alert("Erro", "Você já está no nível máximo ou o tipo é inválido.");
         return;
       }
       const payload = { email, tipo_de_usuario: normalizedTipo };
-      console.log("[DEBUG] Payload para solicitação:", payload);
-      console.log("[DEBUG] Endpoint:", `${API_BASE_URL}/auth/solicitar-promocao`);
       const response = await fetch(`${API_BASE_URL}/auth/solicitar-promocao`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      console.log("[DEBUG] Resposta da requisição:", response);
       const data = await response.json();
-      console.log("[DEBUG] Dados da resposta:", data);
       if (response.ok) {
         ToastAndroid.show("Promoção solicitada com sucesso!", ToastAndroid.SHORT);
-        console.log("[DEBUG] Promoção solicitada com sucesso.");
         setPromotionPending(true);
       } else {
         Alert.alert("Erro", data.message || "Erro ao solicitar promoção.");
       }
-    } catch (error) {
-      console.error("[ERROR] Erro na solicitação de promoção:", error);
+    } catch {
       Alert.alert("Erro", "Erro inesperado ao solicitar promoção.");
     }
   };
 
-  // Logout do usuário
+  // Logout
   const handleLogout = async () => {
     try {
       const usuarioId = await AsyncStorage.getItem("usuarioId");
-      if (!usuarioId) {
-        console.warn("[DEBUG] ID do usuário não encontrado!");
-        return;
-      }
-      console.log("[DEBUG] Usuário que vai sair:", usuarioId);
+      if (!usuarioId) return;
       const response = await fetch(`${API_BASE_URL}/auth/logout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ usuarioId }),
       });
       const data = await response.json();
-      console.log("[DEBUG] Resposta do Logout:", data);
       if (!response.ok) {
         Alert.alert("Erro", data.message || "Erro ao sair.");
         return;
       }
-      console.log("[DEBUG] Logout realizado com sucesso.");
       await AsyncStorage.multiRemove(["usuarioId", "userType", "userEmail"]);
-      navigation.reset({
-        index: 0,
-        routes: [{ name: "LoginRegister" }],
-      });
-    } catch (error) {
-      console.error("[ERROR] Erro durante o logout:", error);
+      navigation.reset({ index: 0, routes: [{ name: "LoginRegister" }] });
+    } catch {
       Alert.alert("Erro", "Erro inesperado ao sair.");
     }
   };
 
-  // Gera os estilos com base no objeto do tema fornecido pelo contexto
+  // Estilos dinâmicos
   const getStyles = (themeObj: typeof theme) =>
     StyleSheet.create({
       modal: {
+        flex: 1,
         justifyContent: "center",
         alignItems: "center",
+        marginLeft:59
       },
       modalContainer: {
         width: "85%",
-        backgroundColor: themeObj.dashboardBackground, // Fundo para modo claro ou escuro
+        backgroundColor: themeObj.dashboardBackground,
         padding: 20,
         borderRadius: 15,
         elevation: 10,
@@ -237,7 +209,6 @@ const SettingModal: React.FC<SettingsModalProps> = ({ isVisible, onClose }) => {
         color: themeObj.buttonText,
         fontWeight: "bold",
       },
-      // Estilos para modais usando a mesma lógica:
       modalContent: {
         backgroundColor: themeObj.dashboardBackground,
         padding: 20,
@@ -271,8 +242,8 @@ const SettingModal: React.FC<SettingsModalProps> = ({ isVisible, onClose }) => {
         marginRight: 10,
       },
       cancelButtonText: {
-        textAlign: "center",
         color: themeObj.textColor,
+        textAlign: "center",
       },
       confirmButton: {
         flex: 1,
@@ -282,8 +253,8 @@ const SettingModal: React.FC<SettingsModalProps> = ({ isVisible, onClose }) => {
         alignItems: "center",
       },
       confirmButtonText: {
-        textAlign: "center",
         color: themeObj.buttonText,
+        textAlign: "center",
       },
       disabledButton: {
         backgroundColor: "#AAA",
@@ -301,95 +272,97 @@ const SettingModal: React.FC<SettingsModalProps> = ({ isVisible, onClose }) => {
   const styles = getStyles(theme);
 
   return (
-    <Modal 
-      isVisible={isVisible} 
-      onBackdropPress={onClose} 
-      animationIn="slideInUp" 
-      animationOut="slideOutDown"
-      style={styles.modal}
-    >
-      <View style={styles.modalContainer}>
-        <Text style={styles.title}>Configurações</Text>
-
-        {/* Opção: Promoção */}
-        <TouchableOpacity
-          style={styles.option}
-          onPress={() => setShowModalPromocao(true)}
-        >
-          <Ionicons name="trending-up" size={24} color={theme.buttonBackground} />
-          <Text style={styles.optionText}>Promoção</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.option} 
-          onPress={() => { navigation.navigate("Favoritos"); onClose(); }}
-        >
-          <Ionicons name="star" size={24} color={theme.buttonBackground} />
-          <Text style={styles.optionText}>Favoritos</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.option} 
-          onPress={() => { navigation.navigate("Historico"); onClose(); }}
-        >
-          <MaterialIcons name="history" size={24} color={theme.buttonBackground} />
-          <Text style={styles.optionText}>Histórico</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.option} 
-          onPress={() => { navigation.navigate("Perfil"); onClose(); }}
-        >
-          <Ionicons name="person" size={24} color={theme.buttonBackground} />
-          <Text style={styles.optionText}>Perfil</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.option} 
-          onPress={() => { navigation.navigate("Sugestoes"); onClose(); }}
-        >
-          <Ionicons name="bulb" size={24} color={theme.buttonBackground} />
-          <Text style={styles.optionText}>Sugestões</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.option} 
-          onPress={() => { navigation.navigate("Sobre"); onClose(); }}
-        >
-          <Ionicons name="information-circle" size={24} color={theme.buttonBackground} />
-          <Text style={styles.optionText}>Sobre</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.option} 
-          onPress={() => { navigation.navigate("Definicoes"); onClose(); }}
-        >
-          <Ionicons name="settings" size={24} color={theme.buttonBackground} />
-          <Text style={styles.optionText}>Definições</Text>
-        </TouchableOpacity>
-
-        {/* Botão de Logout */}
-        <TouchableOpacity 
-          style={styles.logoutButton} 
-          onPress={() => setLogoutModalVisible(true)}
-        >
-          <MaterialIcons name="logout" size={24} color="#FF3B30" />
-          <Text style={styles.logoutText}>Sair</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-          <Text style={styles.closeText}>Fechar</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Modal de Confirmação de Logout utilizando a mesma lógica do modal de promoção */}
+    <>
+      {/* Modal principal de configurações */}
       <Modal 
-        isVisible={isLogoutModalVisible} 
+        isVisible={isVisible} 
+        onBackdropPress={onClose} 
+        animationIn="slideInUp" 
+        animationOut="slideOutDown"
+        style={styles.modal}
+      >
+        <View style={styles.modalContainer}>
+          <Text style={styles.title}>Configurações</Text>
+
+          <TouchableOpacity
+            style={styles.option}
+            onPress={() => setShowModalPromocao(true)}
+          >
+            <Ionicons name="trending-up" size={24} color={theme.buttonBackground} />
+            <Text style={styles.optionText}>Promoção</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.option} 
+            onPress={() => { navigation.navigate("Favoritos"); onClose(); }}
+          >
+            <Ionicons name="star" size={24} color={theme.buttonBackground} />
+            <Text style={styles.optionText}>Favoritos</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.option} 
+            onPress={() => { navigation.navigate("Historico"); onClose(); }}
+          >
+            <MaterialIcons name="history" size={24} color={theme.buttonBackground} />
+            <Text style={styles.optionText}>Histórico</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.option} 
+            onPress={() => { navigation.navigate("Perfil"); onClose(); }}
+          >
+            <Ionicons name="person" size={24} color={theme.buttonBackground} />
+            <Text style={styles.optionText}>Perfil</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.option} 
+            onPress={() => { navigation.navigate("Sugestoes"); onClose(); }}
+          >
+            <Ionicons name="bulb" size={24} color={theme.buttonBackground} />
+            <Text style={styles.optionText}>Sugestões</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.option} 
+            onPress={() => { navigation.navigate("Sobre"); onClose(); }}
+          >
+            <Ionicons name="information-circle" size={24} color={theme.buttonBackground} />
+            <Text style={styles.optionText}>Sobre</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.option} 
+            onPress={() => { navigation.navigate("Definicoes"); onClose(); }}
+          >
+            <Ionicons name="settings" size={24} color={theme.buttonBackground} />
+            <Text style={styles.optionText}>Definições</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.logoutButton} 
+            onPress={() => setLogoutModalVisible(true)}
+          >
+            <MaterialIcons name="logout" size={24} color="#FF3B30" />
+            <Text style={styles.logoutText}>Sair</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Text style={styles.closeText}>Fechar</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* Modal de Confirmação de Logout */}
+      <Modal 
+        isVisible={isLogoutModalVisible}
         onBackdropPress={() => setLogoutModalVisible(false)}
         onBackButtonPress={() => setLogoutModalVisible(false)}
         animationIn="fadeIn"
         animationOut="fadeOut"
         backdropOpacity={0.5}
+        style={styles.modal}
       >
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Confirmar Logout</Text>
@@ -419,6 +392,7 @@ const SettingModal: React.FC<SettingsModalProps> = ({ isVisible, onClose }) => {
         animationIn="fadeIn"
         animationOut="fadeOut"
         backdropOpacity={0.5}
+        style={styles.modal}
       >
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Solicitar Promoção para Mentor</Text>
@@ -432,7 +406,6 @@ const SettingModal: React.FC<SettingsModalProps> = ({ isVisible, onClose }) => {
             >
               <Text style={styles.cancelButtonText}>Cancelar</Text>
             </TouchableOpacity>
-
             {promotionPending ? (
               <TouchableOpacity style={styles.disabledButton} disabled>
                 <Text style={styles.disabledButtonText}>Solicitação Pendente</Text>
@@ -452,7 +425,7 @@ const SettingModal: React.FC<SettingsModalProps> = ({ isVisible, onClose }) => {
           </View>
         </View>
       </Modal>
-    </Modal>
+    </>
   );
 };
 

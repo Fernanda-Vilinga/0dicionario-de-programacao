@@ -50,12 +50,14 @@ function criarDataHoraLocal(data: string, horario: string): Date {
  * Converte um timestamp do Firestore para objeto Date.
  * Se o valor já for Date ou string, tenta converter diretamente.
  */
+import { Timestamp } from 'firebase-admin/firestore';
+
 function converterTimestampParaDate(timestamp: any): Date {
-  if (timestamp && timestamp._seconds != null) {
-    return new Date(timestamp._seconds * 1000);
-  } else {
-    return new Date(timestamp);
+  if (timestamp instanceof Timestamp) {
+    return timestamp.toDate();
   }
+  // Se já for Date ou string/number convertível
+  return new Date(timestamp);
 }
 
 /**
@@ -177,10 +179,12 @@ export default async function mentoriaRoutes(app: FastifyInstance) {
       
       // Registra atividade de aceitação (fire-and-forget)
       const userId = (req as any).user?.id || 'sistema';
-      const descricao = `Sessão de mentoria aceita com sucesso.`;
-      const acao = "Aceitar Mentoria";
-      registrarAtividade(userId, descricao, acao);
+const descricao = `Sessão de mentoria aceita com sucesso.`;
+const acao = "Aceitar Mentoria";
+registrarAtividade(userId, descricao, acao);
 
+   
+     
       return reply.send({ message: 'Mentoria aceita com sucesso.' });
     } catch (error) {
       console.error(error);
@@ -197,7 +201,7 @@ export default async function mentoriaRoutes(app: FastifyInstance) {
 
       // Registra atividade de rejeição (fire-and-forget)
       const userId = (req as any).user?.id || 'sistema';
-      const descricao = `Sessão de mentoria rejeitada. Motivo: ${motivo || 'não informado'}.`;
+const descricao = `Sessão de mentoria cancelada. Motivo: ${motivo || 'não informado'}.`;
       const acao = "Rejeitar Mentoria";
       registrarAtividade(userId, descricao, acao);
 
@@ -217,9 +221,10 @@ export default async function mentoriaRoutes(app: FastifyInstance) {
 
       // Registra atividade de cancelamento (fire-and-forget)
       const userId = (req as any).user?.id || 'sistema';
-      const descricao = `Sessão de mentoria cancelada. Motivo: ${motivo || 'não informado'}.`;
-      const acao = "Cancelar Mentoria";
+      const descricao = `Sessão de mentoria rejeitada. Motivo: ${motivo || 'não informado'}.`;
+      const acao = "Rejeitar Mentoria";
       registrarAtividade(userId, descricao, acao);
+      
 
       return reply.send({ message: 'Mentoria cancelada com sucesso.' });
     } catch (error) {
@@ -235,7 +240,7 @@ export default async function mentoriaRoutes(app: FastifyInstance) {
       const mentorias = await Promise.all(snapshot.docs.map(async (doc) => {
         const data = doc.data();
         const novoStatus = await verificarEAtualizarSessao(doc.id, data);
-        return { id: doc.id, ...data, status: novoStatus };
+        return { sessaoId: doc.id, ...data, status: novoStatus };
       }));
       return reply.send(mentorias);
     } catch (error) {
@@ -254,7 +259,7 @@ export default async function mentoriaRoutes(app: FastifyInstance) {
       }
       const data = doc.data();
       const novoStatus = await verificarEAtualizarSessao(doc.id, data);
-      return reply.send({ id: doc.id, ...data, status: novoStatus });
+      return reply.send({ sessaoId: doc.id, ...data, status: novoStatus });
     } catch (error) {
       console.error(error);
       return reply.status(500).send({ message: 'Erro ao buscar mentoria.' });
@@ -283,7 +288,7 @@ export default async function mentoriaRoutes(app: FastifyInstance) {
       const sessoes = await Promise.all(snapshot.docs.map(async (doc) => {
         const data = doc.data();
         const novoStatus = await verificarEAtualizarSessao(doc.id, data);
-        return { id: doc.id, ...data, status: novoStatus };
+        return { sessaoId: doc.id, ...data, status: novoStatus };
       }));
 
       return reply.send({ sessoes });
@@ -312,7 +317,7 @@ export default async function mentoriaRoutes(app: FastifyInstance) {
       const sessoes = await Promise.all(snapshot.docs.map(async (doc) => {
         const data = doc.data();
         const novoStatus = await verificarEAtualizarSessao(doc.id, data);
-        return { id: doc.id, ...data, status: novoStatus };
+        return { sessaoId: doc.id, ...data, status: novoStatus };
       }));
   
       return reply.send({ sessoes });
@@ -341,7 +346,7 @@ export default async function mentoriaRoutes(app: FastifyInstance) {
       });
 
       // Registra atividade de avaliação (fire-and-forget)
-      const descricao = `Sessão de mentoria avaliada com nota ${nota}.`;
+ const descricao = `Sessão de mentoria avaliada com nota ${nota}.`;
       const acao = "Avaliar Mentoria";
       registrarAtividade(avaliadorId, descricao, acao);
 
@@ -352,3 +357,5 @@ export default async function mentoriaRoutes(app: FastifyInstance) {
     }
   });
 }
+
+

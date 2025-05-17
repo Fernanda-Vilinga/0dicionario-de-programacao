@@ -36,8 +36,8 @@ const about_1 = __importDefault(require("./routes/about"));
 const users_1 = __importDefault(require("./routes/users"));
 const reports_1 = __importDefault(require("./routes/reports"));
 const logout_1 = __importDefault(require("./routes/auth/logout"));
+const notifications_1 = __importDefault(require("./routes/notifications"));
 const app = (0, fastify_1.default)({ logger: true });
-// 🔹 Configuração do CORS (deve vir antes das rotas!)
 app.register(cors_1.default, {
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -78,6 +78,7 @@ app.register(about_1.default);
 app.register(users_1.default);
 app.register(reports_1.default);
 app.register(logout_1.default);
+app.register(notifications_1.default);
 // 🔹 Inicia o servidor
 const start = () => __awaiter(void 0, void 0, void 0, function* () {
     try {

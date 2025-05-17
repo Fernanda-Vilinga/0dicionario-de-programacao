@@ -1,44 +1,42 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import db from '../firebaseConfig';
+import admin from 'firebase-admin';
+import { registrarAtividade, distribuirNotificacao, buscarUsuariosPorRole } from './notificationsservice';
 
-// Função auxiliar para registrar atividade
-export async function registrarAtividade(userId: string, descricao: string, acao: string) {
-  try {
-    await db.collection('atividades').add({
-      userId,
-      description: descricao,
-      action: acao,
-      createdAt: new Date(), // Usamos a data atual
-    });
-  } catch (error) {
-    console.error('Erro ao registrar atividade:', error);
-  }
+interface SugestaoBody {
+  usuarioId: string;
+  categoria: string;
+  descricao: string;
+  status?: string;
 }
 
-async function suggestsRoutes(app: FastifyInstance) {
-  // 🔹 Enviar sugestão
-  app.post('/sugestoes', async (request, reply) => {
-    const { usuarioId, categoria, descricao, status } = request.body as any;
-
+export default async function suggestsRoutes(app: FastifyInstance) {
+  // Enviar sugestão: notifica admins
+  app.post('/sugestoes', async (req: FastifyRequest<{ Body: SugestaoBody }>, reply: FastifyReply) => {
+    const { usuarioId, categoria, descricao, status } = req.body;
     if (!usuarioId || !categoria || !descricao) {
       return reply.status(400).send({ message: 'Dados inválidos' });
     }
-
     try {
-      const novaSugestao = {
+      const nova = {
         usuarioId,
         categoria,
         descricao,
         status: status || 'pendente',
-        data: new Date().toISOString(),
+        data: admin.firestore.Timestamp.now(),
       };
+      const docRef = await db.collection('sugestoes').add(nova);
 
-      const docRef = await db.collection('sugestoes').add(novaSugestao);
+      // registrar atividade e notificação para o autor
+      const descAtiv = `Sugestão enviada para categoria \"${categoria}\".`;
+      const acao = 'Enviar Sugestão';
+      await registrarAtividade(usuarioId, descAtiv, acao);
+      await distribuirNotificacao([usuarioId], acao, descAtiv);
 
-      // Registra a atividade de envio de sugestão com mensagem natural
-      const descAtividade = `Sugestão enviada com sucesso para a categoria "${categoria}".`;
-      const acao = "Enviar Sugestão";
-      await registrarAtividade(usuarioId, descAtividade, acao);
+      // notificar todos os admins
+      const admins = await buscarUsuariosPorRole('admin');
+      const msgAdmin = `Nova sugestão na categoria \"${categoria}\" de ${usuarioId}.`;
+      await distribuirNotificacao(admins, 'Nova Sugestão', msgAdmin);
 
       return reply.status(201).send({ message: 'Sugestão recebida', id: docRef.id });
     } catch (error) {
@@ -47,14 +45,11 @@ async function suggestsRoutes(app: FastifyInstance) {
     }
   });
 
-  // 🔹 Listar sugestões
+  // Listar sugestões (sem notificações)
   app.get('/sugestoes', async (_, reply) => {
     try {
       const snapshot = await db.collection('sugestoes').get();
-      const sugestoes = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const sugestoes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       return reply.status(200).send(sugestoes);
     } catch (error) {
       console.error('Erro ao buscar sugestões:', error);
@@ -62,25 +57,27 @@ async function suggestsRoutes(app: FastifyInstance) {
     }
   });
 
-  // 🔹 Atualizar status da sugestão
-  app.put('/sugestoes/:id', async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const { status } = request.body as { status: string };
-
+  // Atualizar status da sugestão: notifica autor
+  app.put('/sugestoes/:id', async (req: FastifyRequest<{ Params: { id: string }; Body: { status: string; usuarioId?: string } }>, reply: FastifyReply) => {
+    const { id } = req.params;
+    const { status, usuarioId: bodyUser } = req.body;
     if (!status) {
       return reply.status(400).send({ message: 'Status não informado' });
     }
-
     try {
-      const docRef = db.collection('sugestoes').doc(id);
-      await docRef.update({ status });
+      const ref = db.collection('sugestoes').doc(id);
+      const snap = await ref.get();
+      if (!snap.exists) {
+        return reply.status(404).send({ message: 'Sugestão não encontrada' });
+      }
+      const orig = snap.data() as any;
+      await ref.update({ status });
 
-      // Registra a atividade de atualização de status com mensagem natural
-      // Caso o usuário não esteja disponível no body, usa 'sistema'
-      const usuarioId = (request.body as any).usuarioId || 'sistema';
-      const descAtividade = `Status da sugestão atualizado para "${status}".`;
-      const acao = "Atualizar Sugestão";
-      await registrarAtividade(usuarioId, descAtividade, acao);
+      const autor = orig.usuarioId || bodyUser || 'sistema';
+      const descAtiv = `Status da sugestão atualizado para \"${status}\".`;
+      const acao = 'Atualizar Sugestão';
+      await registrarAtividade(autor, descAtiv, acao);
+      await distribuirNotificacao([autor], acao, descAtiv);
 
       return reply.status(200).send({ message: 'Status da sugestão atualizado' });
     } catch (error) {
@@ -89,5 +86,3 @@ async function suggestsRoutes(app: FastifyInstance) {
     }
   });
 }
-
-export default suggestsRoutes;

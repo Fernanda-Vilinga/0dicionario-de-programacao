@@ -30,12 +30,22 @@ interface QuizQuestion {
   respostaCorreta: number;
   categoria: string;
   date: string;
+   respostaCorretaTexto?: string;
+
 }
 
 interface RespostaQuiz {
   idPergunta: string;
   respostaDada: string;
   correta: boolean;
+}
+function shuffleArray<T>(array: T[]): T[] {
+  const a = [...array];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 const QuizScreen: React.FC = () => {
@@ -239,25 +249,44 @@ const QuizScreen: React.FC = () => {
   };
 
   const fetchQuestions = async (categoria: string) => {
-    setLoading(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/quiz/perguntas?categoria=${encodeURIComponent(categoria)}`);
-      const data: QuizQuestion[] = await response.json();
-      if (data.length === 0) {
-        Alert.alert('Atenção', 'Nenhuma pergunta encontrada para esta categoria.');
-      }
-      setQuestions(data);
-      // Se o progresso salvo estiver fora do intervalo, reinicia o índice
-      setCurrentQuestionIndex(0);
-      setResponses([]);
-      setAllCorrect(true); // Resetar o estado para cada novo quiz
-      setNewBadges([]);
-    } catch (error) {
-      Alert.alert('Erro', 'Falha ao carregar as perguntas.');
-    } finally {
-      setLoading(false);
+  setLoading(true);
+  try {
+    const response = await fetch(`${API_BASE_URL}/quiz/perguntas?categoria=${encodeURIComponent(categoria)}`);
+    const data: QuizQuestion[] = await response.json();
+    if (!data.length) {
+      Alert.alert('Atenção', 'Nenhuma pergunta encontrada.');
+      return;
     }
-  };
+
+    const shuffled = data.map(q => {
+      // 1. guarda a resposta certa como texto
+      const correctText = q.opcoes[q.respostaCorreta];
+
+      // 2. embaralha só o array de opções
+      const opcs = shuffleArray(q.opcoes);
+
+      // 3. retorna uma cópia da pergunta, incluindo um campo extra
+      return {
+        ...q,
+        opcoes: opcs,
+        // mantém o 'respostaCorreta' original ou zera se quiser
+        // respostaCorreta: undefined,
+        respostaCorretaTexto: correctText, 
+      };
+    });
+
+    setQuestions(shuffled);
+    setCurrentQuestionIndex(0);
+    setResponses([]);
+    setAllCorrect(true);
+    setNewBadges([]);
+  } catch {
+    Alert.alert('Erro', 'Falha ao carregar as perguntas.');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handleSelectCategory = (categoria: string) => {
     setSelectedCategory(categoria);
@@ -268,29 +297,32 @@ const QuizScreen: React.FC = () => {
     setMode('quiz');
   };
   const handleSelectAnswer = (selectedIndex: number) => {
-    const currentQuestion = questions[currentQuestionIndex];
-    const isCorrect = selectedIndex === Number(currentQuestion.respostaCorreta);
-  
-    const resposta: RespostaQuiz = {
-      idPergunta: currentQuestion.id,
-      respostaDada: currentQuestion.opcoes[selectedIndex],
-      correta: isCorrect,
-    };
-  
-    setResponses(prev => [...prev, resposta]);
-       // Obtenha a pergunta atual
-        if (!isCorrect) {
-            setAllCorrect(false);
-            Alert.alert('Resposta incorreta', 'Tente novamente.');
-        } else {
-            if (currentQuestionIndex < questions.length - 1) {
-                setCurrentQuestionIndex(prevIndex => prevIndex + 1);
-            } else {
-                submitQuiz(); // Envia o quiz após a última resposta correta
-            }
-        }
-    };
-  
+  const current = questions[currentQuestionIndex];
+  const selectedText = current.opcoes[selectedIndex];
+  const isCorrect = selectedText === current.respostaCorretaTexto;
+
+  const resposta: RespostaQuiz = {
+    idPergunta: current.id,
+    respostaDada: selectedText,
+    correta: isCorrect,
+  };
+
+  setResponses(prev => [...prev, resposta]);
+
+  if (!isCorrect) {
+    setAllCorrect(false);
+    Alert.alert('Resposta incorreta', 'Tente novamente.');
+    return;
+  }
+
+  // fluxo normal para avançar de pergunta
+  if (currentQuestionIndex < questions.length - 1) {
+    setCurrentQuestionIndex(idx => idx + 1);
+  } else {
+    submitQuiz();
+  }
+};
+
   const submitQuiz = async () => {
     const payload = {
       usuarioId,

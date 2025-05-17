@@ -33,7 +33,7 @@ export async function registrarAtividade(userId: string, descricao: string, acao
       userId,
       description: descricao,
       action: acao,
-      createdAt: new Date(), // Usamos a data atual
+      createdAt: new Date(),
     });
   } catch (error) {
     console.error('Erro ao registrar atividade:', error);
@@ -45,100 +45,67 @@ export default async function dicionarioRoutes(app: FastifyInstance) {
   // 🔍 Rota para buscar um termo específico (prefix match + case sensitive)
   app.get('/dicionario/termos', async (req: FastifyRequest<{ Querystring: TermoQuery }>, reply: FastifyReply) => {
     const { termo } = req.query;
-  
-    if (!termo) {
-      return reply.status(400).send({ message: 'Termo não fornecido.' });
-    }
-  
+    if (!termo) return reply.status(400).send({ message: 'Termo não fornecido.' });
     try {
       const termoLower = termo.toLowerCase();
-      const termRef = db.collection('termos').where('termo_array', 'array-contains', termoLower);
-      const termSnapshot = await termRef.get();
-  
-      if (termSnapshot.empty) {
-        return reply.status(404).send({ message: 'Nenhum termo encontrado.' });
-      }
-  
-      const termos: Termo[] = termSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data() as Omit<Termo, 'id'>,
-      }));
-  
+      const termSnapshot = await db.collection('termos')
+        .where('termo_array', 'array-contains', termoLower)
+        .get();
+      if (termSnapshot.empty) return reply.status(404).send({ message: 'Nenhum termo encontrado.' });
+      const termos: Termo[] = termSnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Omit<Termo,'id'>) }));
       return reply.send(termos);
     } catch (error) {
-      console.error("Erro ao buscar termo:", error);
+      console.error('Erro ao buscar termo:', error);
       return reply.status(500).send({ message: 'Erro ao buscar termo' });
     }
   });
-  
+
   // 🔍 Rota para busca simples (substring search)
   app.get('/dicionario/termos/simples', async (req: FastifyRequest<{ Querystring: { termo?: string } }>, reply: FastifyReply) => {
     let { termo } = req.query;
-  
-    if (!termo) {
-      return reply.status(400).send({ message: 'Termo não fornecido.' });
-    }
-  
+    if (!termo) return reply.status(400).send({ message: 'Termo não fornecido.' });
     termo = termo.toLowerCase().trim();
-  
     try {
-      const termSnapshot = await db.collection('termos').get();
-  
-      if (termSnapshot.empty) {
-        return reply.status(404).send({ message: 'Nenhum termo encontrado.' });
-      }
-  
-      let termos: Termo[] = termSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data() as Omit<Termo, 'id'>,
-      }));
-  
-      const resultado = termos.filter(t => t.termo_lower && t.termo_lower.includes(termo));
-  
-      if (resultado.length === 0) {
-        return reply.status(404).send({ message: 'Nenhum termo encontrado.' });
-      }
-  
+      const snapshot = await db.collection('termos').get();
+      if (snapshot.empty) return reply.status(404).send({ message: 'Nenhum termo encontrado.' });
+      const termos: Termo[] = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Omit<Termo,'id'>) }));
+      const resultado = termos.filter(t => t.termo_lower.includes(termo));
+      if (resultado.length === 0) return reply.status(404).send({ message: 'Nenhum termo encontrado.' });
       return reply.send(resultado);
     } catch (error) {
-      console.error("Erro ao buscar termo simples:", error);
+      console.error('Erro ao buscar termo simples:', error);
       return reply.status(500).send({ message: 'Erro ao buscar termo simples' });
     }
   });
-  
+
   // 📌 Rota para listar todos os termos cadastrados
-  app.get('/dicionario/todos', async (_, reply: FastifyReply) => {
+  app.get('/dicionario/todos', async (_, reply) => {
     try {
-      const termRef = db.collection('termos');
-      const termSnapshot = await termRef.get();
-  
-      if (termSnapshot.empty) {
-        return reply.send([]);
-      }
-  
-      const termos: Termo[] = termSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data() as Omit<Termo, 'id'>,
-      }));
-  
+      const snapshot = await db.collection('termos').get();
+      if (snapshot.empty) return reply.send([]);
+      const termos: Termo[] = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Omit<Termo,'id'>) }));
       return reply.send(termos);
     } catch (error) {
-      console.error("Erro ao buscar todos os termos:", error);
+      console.error('Erro ao buscar todos os termos:', error);
       return reply.status(500).send({ message: 'Erro ao buscar os termos' });
     }
   });
-  
+  // GET one term by id
+  app.get('/dicionario/termos/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const doc = await db.collection('termos').doc(id).get();
+    if (!doc.exists) {
+      return reply.status(404).send({ message: 'Termo não encontrado' });
+    }
+    return reply.send({ id: doc.id, ...doc.data() });
+  });
+
   // ✅ Rota para adicionar um termo e registrar a atividade
   app.post('/dicionario/termo', async (req: FastifyRequest<{ Body: TermoBody }>, reply: FastifyReply) => {
     const { termo, definicao, exemplos, linguagem, categoria } = req.body;
-  
-    if (!termo || !definicao) {
-      return reply.status(400).send({ message: 'Preencha todos os campos obrigatórios.' });
-    }
-  
+    if (!termo || !definicao) return reply.status(400).send({ message: 'Preencha todos os campos obrigatórios.' });
     try {
-      // Adiciona o termo na coleção
-      const novoTermoRef = await db.collection('termos').add({
+      const novoRef = await db.collection('termos').add({
         termo,
         termo_lower: termo.toLowerCase(),
         definicao,
@@ -146,43 +113,62 @@ export default async function dicionarioRoutes(app: FastifyInstance) {
         linguagem: linguagem || 'Geral',
         categoria: categoria || 'Sem categoria',
       });
-  
-      // Define o userId para registro de atividade (utilizando header x-user-id, se existir)
       const userId = (req.headers['x-user-id'] as string) || 'sistema';
-      // Mensagem de atividade mais natural
       const descricao = `O termo '${termo}' foi adicionado com sucesso ao dicionário.`;
-      const acao = "Adicionar termo";
-  
-      // Registra a atividade
+      const acao = 'Adicionar termo';
       await registrarAtividade(userId, descricao, acao);
-  
-      return reply.status(201).send({ message: 'Termo adicionado com sucesso.', id: novoTermoRef.id });
+      return reply.status(201).send({ message: 'Termo adicionado com sucesso.', id: novoRef.id });
     } catch (error) {
-      console.error("Erro ao adicionar termo:", error);
+      console.error('Erro ao adicionar termo:', error);
       return reply.status(500).send({ message: 'Erro ao adicionar termo.' });
     }
   });
-  
-  // 🔍 Rota para buscar um termo por ID
-  app.get('/dicionario/termos/:id', async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+
+  // PUT: atualizar termo
+  app.put('/dicionario/termo/:id', async (
+    req: FastifyRequest<{ Params: { id: string }; Body: Partial<TermoBody> }>,
+    reply: FastifyReply
+  ) => {
     const { id } = req.params;
-  
+    const updates = req.body;
+    const userId = (req.headers['x-user-id'] as string) || 'sistema';
     try {
-      const doc = await db.collection('termos').doc(id).get();
-  
-      if (!doc.exists) {
-        return reply.status(404).send({ message: 'Termo não encontrado.' });
-      }
-  
-      const termoEncontrado = {
-        id: doc.id,
-        ...doc.data()
-      };
-  
-      return reply.send(termoEncontrado);
+      const ref = db.collection('termos').doc(id);
+      const snap = await ref.get();
+      if (!snap.exists) return reply.status(404).send({ message: 'Termo não encontrado.' });
+      await ref.update({
+        ...updates,
+        termo_lower: updates.termo ? updates.termo.toLowerCase() : snap.data()?.termo_lower
+      });
+      const descricao = `Termo '${id}' atualizado com sucesso.`;
+      const acao = 'Atualizar termo';
+      await registrarAtividade(userId, descricao, acao);
+      return reply.send({ message: 'Termo atualizado com sucesso.' });
     } catch (error) {
-      console.error("Erro ao buscar termo por ID:", error);
-      return reply.status(500).send({ message: 'Erro ao buscar termo por ID.' });
+      console.error('Erro ao atualizar termo:', error);
+      return reply.status(500).send({ message: 'Erro ao atualizar termo.' });
+    }
+  });
+
+  // DELETE: remover termo
+  app.delete('/dicionario/termo/:id', async (
+    req: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply
+  ) => {
+    const { id } = req.params;
+    const userId = (req.headers['x-user-id'] as string) || 'sistema';
+    try {
+      const ref = db.collection('termos').doc(id);
+      const snap = await ref.get();
+      if (!snap.exists) return reply.status(404).send({ message: 'Termo não encontrado.' });
+      await ref.delete();
+      const descricao = `Termo '${id}' removido com sucesso.`;
+      const acao = 'Deletar termo';
+      await registrarAtividade(userId, descricao, acao);
+      return reply.send({ message: 'Termo deletado com sucesso.' });
+    } catch (error) {
+      console.error('Erro ao deletar termo:', error);
+      return reply.status(500).send({ message: 'Erro ao deletar termo.' });
     }
   });
 }

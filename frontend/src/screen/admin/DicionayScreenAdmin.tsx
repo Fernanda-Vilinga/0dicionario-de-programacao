@@ -27,7 +27,17 @@ const DictionaryScreen: React.FC = () => {
   const [languageInput, setLanguageInput] = useState<string>('JavaScript');
   const [editingTerm, setEditingTerm] = useState<Term | null>(null);
   const { theme } = useContext(ThemeContext);
-
+  useEffect(() => {
+    if (!modalVisible) {
+      // Limpa os campos somente se o modal foi fechado
+      setEditingTerm(null);
+      setTermInput('');
+      setDefinitionInput('');
+      setExampleInput('');
+      setLanguageInput('JavaScript');
+    }
+  }, [modalVisible]);
+  
   useEffect(() => {
     fetchTerms();
   }, []);
@@ -132,12 +142,7 @@ const DictionaryScreen: React.FC = () => {
         <Text style={[styles.buttonText, { color: theme.buttonText }]}>Adicionar Termo</Text>
       </TouchableOpacity>
   
-      <TouchableOpacity 
-        style={[styles.addButton, { backgroundColor: theme.buttonBackground }]}
-      >
-        <Text style={[styles.buttonText, { color: theme.buttonText }]}>Ver sugestões</Text>
-      </TouchableOpacity>
-  
+      
       <Text style={[styles.subtitle, { color: theme.textColor }]}>Lista de Termos</Text>
   
       <FlatList
@@ -174,7 +179,7 @@ const DictionaryScreen: React.FC = () => {
   
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalContainer}>
-          <View style={[styles.modalContent, { backgroundColor: theme.cardBackground }]}>
+          <View style={[styles.modalContent, { backgroundColor: theme.backgroundColor }]}>
             <TouchableOpacity style={styles.closeButton} onPress={() => setModalVisible(false)}>
               <MaterialIcons name="close" size={24} color={theme.placeholderTextColor} />
             </TouchableOpacity>
@@ -202,7 +207,7 @@ const DictionaryScreen: React.FC = () => {
             />
             <Picker
               selectedValue={languageInput}
-              style={[styles.input, { color: theme.textColor }]}
+              style={[styles.input, { color: theme.textColor },{ backgroundColor: theme.backgroundColor }]}
               onValueChange={(itemValue) => setLanguageInput(itemValue)}
             >
               <Picker.Item label="JavaScript" value="JavaScript" />

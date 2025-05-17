@@ -10,17 +10,6 @@ interface Usuario {
   imagem?: string;
 }
 
-// (Opcional) Se desejar registrar atividade, use uma função similar à que usamos nas outras rotas:
-// function registrarAtividade(userId: string, descricao: string, acao: string) {
-//   db.collection('atividades').add({
-//     userId,
-//     description: descricao,
-//     action: acao,
-//     createdAt: new Date(),
-//   }).catch(error => {
-//     console.error('Erro ao registrar atividade:', error);
-//   });
-// }
 
 export default async function contactRoutes(app: FastifyInstance) {
   // Rota para buscar os contatos do usuário informado

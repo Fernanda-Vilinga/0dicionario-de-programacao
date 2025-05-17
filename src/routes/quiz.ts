@@ -72,7 +72,8 @@ export default async function quizRoutes(app: FastifyInstance) {
 
         // Registra atividade de resposta do quiz com mensagem natural
         const descricao = `Quiz respondido com sucesso. Pontuação: ${score}.`;
-        const acao = "Responder Quiz";
+const acao = "Responder Quiz";
+     
         await registrarAtividade(usuarioId, descricao, acao);
 
         return reply.send({ message: 'Quiz respondido com sucesso.', score });
@@ -106,8 +107,10 @@ export default async function quizRoutes(app: FastifyInstance) {
 
         // Registra atividade de criação de pergunta com mensagem natural
         const userId = (req.headers['x-user-id'] as string) || 'sistema';
-        const descricao = `Pergunta criada com sucesso na categoria "${categoria}".`;
-        const acao = "Criar Pergunta";
+const descricao = `Pergunta criada com sucesso na categoria "${categoria}".`;
+const acao = "Criar Pergunta";
+
+   
         await registrarAtividade(userId, descricao, acao);
 
         return reply.status(201).send({ message: 'Pergunta criada com sucesso.', id: newQuestion.id });
@@ -162,8 +165,9 @@ export default async function quizRoutes(app: FastifyInstance) {
 
         // Registra atividade de atualização de pergunta com mensagem natural
         const userId = (req.headers['x-user-id'] as string) || 'sistema';
-        const descricao = `Pergunta atualizada com sucesso.`;
-        const acao = "Atualizar Pergunta";
+const descricao = `Pergunta atualizada com sucesso.`;
+const acao = "Atualizar Pergunta";
+    
         await registrarAtividade(userId, descricao, acao);
 
         return reply.send({ message: 'Pergunta atualizada com sucesso.' });
@@ -208,3 +212,4 @@ export default async function quizRoutes(app: FastifyInstance) {
     }
   );
 }
+

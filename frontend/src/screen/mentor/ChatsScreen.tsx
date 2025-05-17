@@ -1,15 +1,16 @@
+// ChatScreen.tsx
 import React, { useState, useEffect, useContext } from 'react';
-import { 
-  View, 
-  Text, 
-  ActivityIndicator, 
-  KeyboardAvoidingView, 
-  Modal, 
-  Image, 
-  ScrollView, 
-  Alert, 
-  TouchableOpacity, 
-  Linking 
+import {
+  View,
+  Text,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Image,
+  ScrollView,
+  Alert,
+  TouchableOpacity,
+  Linking
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../HeaderComum';
@@ -47,7 +48,6 @@ type SessionParam = {
 };
 
 type ChatScreenRouteProp = RouteProp<{ ChatScreen: SessionParam }, 'ChatScreen'>;
-
 type UserType = 'USER' | 'MENTOR' | 'ADMIN';
 
 const ChatScreen: React.FC = () => {
@@ -59,9 +59,10 @@ const ChatScreen: React.FC = () => {
   const sessaoParam = route.params?.sessao;
   const sessionStatus = sessaoParam?.status || 'em_curso';
 
-  // State
+  // States
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true); // loader mínimo 12s
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [sessionId, setSessionId] = useState<string>(sessaoParam?.sessaoId || '');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -74,7 +75,13 @@ const ChatScreen: React.FC = () => {
   const [modalLoading, setModalLoading] = useState(false);
   const [audioModalVisible, setAudioModalVisible] = useState(false);
 
-  // Load user data
+  // Loader mínimo de 12s
+  useEffect(() => {
+    const timer = setTimeout(() => setInitialLoading(false), 12000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Carregar dados do usuário
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -82,14 +89,14 @@ const ChatScreen: React.FC = () => {
         const tipo = await AsyncStorage.getItem('tipo_de_usuario');
         if (uid) setUserId(uid);
         if (tipo) setUserType(tipo.toUpperCase() as UserType);
-      } catch (e) {
+      } catch {
         Alert.alert('Erro', 'Não foi possível recuperar dados de usuário.');
       }
     };
     loadUser();
   }, []);
 
-  // Fetch contacts
+  // Buscar contatos
   useEffect(() => {
     if (!userId) {
       setLoadingContacts(false);
@@ -118,7 +125,7 @@ const ChatScreen: React.FC = () => {
     fetchContacts();
   }, [userId]);
 
-  // Verify session
+  // Verificar sessão de mentoria
   const checkMentoria = async (contactId: string) => {
     try {
       const body = {
@@ -126,17 +133,23 @@ const ChatScreen: React.FC = () => {
         mentorId: userType === 'MENTOR' ? userId : contactId,
       };
       let res = await fetch(`${API_BASE_URL}/mentoria/verificar`, {
-        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
       });
       let json = await res.json();
       if (res.ok && json.sessaoId) return json.sessaoId;
-      // inversion
+
+      // Tenta inverso
       const inv = { usuarioId: body.mentorId, mentorId: body.usuarioId };
       res = await fetch(`${API_BASE_URL}/mentoria/verificar`, {
-        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(inv)
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(inv)
       });
       json = await res.json();
       if (res.ok && json.sessaoId) return json.sessaoId;
+
       Alert.alert('Atenção', json.message);
       return null;
     } catch {
@@ -153,7 +166,7 @@ const ChatScreen: React.FC = () => {
     }
   };
 
-  // Fetch messages
+  // Buscar mensagens
   const fetchMessages = async () => {
     if (!sessionId) return;
     setLoadingMessages(true);
@@ -162,8 +175,11 @@ const ChatScreen: React.FC = () => {
       const data = await res.json();
       if (res.ok) {
         const msgs: Message[] = data.map((m: any) => ({
-          id: m.id, text: m.mensagem, sender: m.remetenteId,
-          timestamp: m.timestamp, audioUri: m.audioUri
+          id: m.id,
+          text: m.mensagem,
+          sender: m.remetenteId,
+          timestamp: m.timestamp,
+          audioUri: m.audioUri
         }));
         setMessages(msgs);
       } else {
@@ -176,70 +192,85 @@ const ChatScreen: React.FC = () => {
     }
   };
 
-  useEffect(() => { if (selectedContact) fetchMessages(); }, [selectedContact, sessionId]);
+  useEffect(() => {
+    if (selectedContact) fetchMessages();
+  }, [selectedContact, sessionId]);
 
-  // Send text message
+  // Enviar mensagem de texto
   const sendMessage = async () => {
     if (!inputMessage.trim() || !sessionId) return;
     try {
       const res = await fetch(`${API_BASE_URL}/chat/enviar`, {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ sessaoId:sessionId, remetenteId:userId, mensagem:inputMessage })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessaoId: sessionId, remetenteId: userId, mensagem: inputMessage })
       });
       const json = await res.json();
       if (res.ok) {
-        setInputMessage(''); fetchMessages();
-      } else Alert.alert('Erro', json.message);
-    } catch { Alert.alert('Erro','Não foi possível enviar.'); }
+        setInputMessage('');
+        fetchMessages();
+      } else {
+        Alert.alert('Erro', json.message);
+      }
+    } catch {
+      Alert.alert('Erro', 'Não foi possível enviar.');
+    }
   };
 
-  // Send audio message
+  // Enviar áudio
   const sendAudioMessage = async (uri: string) => {
     if (!sessionId) return;
     try {
       const res = await fetch(`${API_BASE_URL}/chat/enviar-audio`, {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ sessaoId:sessionId, remetenteId:userId, mensagem:uri })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessaoId: sessionId, remetenteId: userId, mensagem: uri })
       });
       if (res.ok) fetchMessages();
-      else Alert.alert('Erro','Falha ao enviar áudio');
-    } catch { Alert.alert('Erro','Falha no áudio'); }
+      else Alert.alert('Erro', 'Falha ao enviar áudio');
+    } catch {
+      Alert.alert('Erro', 'Falha no áudio');
+    }
   };
 
-  // Start call
+  // Iniciar chamada
   const iniciarChamada = () => {
-    if (!sessionId) return Alert.alert('Erro','Sem sessão.');
+    if (!sessionId) return Alert.alert('Erro', 'Sem sessão.');
     Linking.openURL(`https://meet.jit.si/${sessionId}`);
   };
 
-  // Profile modal
+  // Modal de perfil
   const openProfileModal = async (cid: string) => {
-    setModalLoading(true); setModalVisible(true);
+    setModalLoading(true);
+    setModalVisible(true);
     try {
       const res = await fetch(`${API_BASE_URL}/perfil/${cid}`);
       const json = await res.json();
       if (res.ok) setModalProfile(json);
-      else { Alert.alert('Erro', json.message); setModalVisible(false); }
-    } catch { Alert.alert('Erro','Falha perfil'); setModalVisible(false); }
-    finally { setModalLoading(false); }
+      else {
+        Alert.alert('Erro', json.message);
+        setModalVisible(false);
+      }
+    } catch {
+      Alert.alert('Erro', 'Falha perfil');
+      setModalVisible(false);
+    } finally {
+      setModalLoading(false);
+    }
   };
 
   return (
-    <KeyboardAvoidingView style={[styles.keyboardContainer,{backgroundColor:theme.backgroundColor}]}>      
+    <KeyboardAvoidingView style={[styles.keyboardContainer, { backgroundColor: theme.backgroundColor }]}>
       <View style={styles.container}>
         {!selectedContact ? (
           <>
             <Header screenName="Contactos" />
-            {loadingContacts ? (
-              <ActivityIndicator size="large" color="#2979FF" />
-            ) : (
-              <Contacts
-                contacts={contacts}
-                loading={loadingContacts}
-                onSelectContact={handleSelectContact}
-                onOpenProfile={openProfileModal}
-              />
-            )}
+            <Contacts
+              contacts={contacts}
+              loading={loadingContacts || initialLoading}
+              onSelectContact={handleSelectContact}
+              onOpenProfile={openProfileModal}
+            />
           </>
         ) : (
           <ChatArea
@@ -261,29 +292,45 @@ const ChatScreen: React.FC = () => {
           />
         )}
 
-        {/* Profile modal */}
+        {/* Modal de perfil */}
         <Modal visible={modalVisible} transparent animationType="slide">
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContainer,{backgroundColor:theme.backgroundColor}]}> 
-              {modalLoading ? <ActivityIndicator size="large" color={theme.buttonBackground}/> : 
-              modalProfile ? (
+            <View style={[styles.modalContainer, { backgroundColor: theme.backgroundColor }]}>
+              {modalLoading ? (
+                <ActivityIndicator size="large" color={theme.buttonBackground} />
+              ) : modalProfile ? (
                 <ScrollView contentContainerStyle={styles.modalContent}>
-                  {modalProfile.profileImage && <Image source={{uri:modalProfile.profileImage}} style={styles.modalImage}/>}                  
-                  <Text style={[styles.modalName,{color:theme.textColor}]}>{modalProfile.nome}</Text>
-                  {modalProfile.bio && <Text style={[styles.modalBio,{color:theme.textColor}]}>{modalProfile.bio}</Text>}
-                  <TouchableOpacity style={styles.closeButton} onPress={()=>setModalVisible(false)}>
-                    <Text style={[styles.closeButtonText,{color:theme.buttonText}]}>Fechar</Text>
+                  {modalProfile.profileImage && (
+                    <Image source={{ uri: modalProfile.profileImage }} style={styles.modalImage} />
+                  )}
+                  <Text style={[styles.modalName, { color: theme.textColor }]}>
+                    {modalProfile.nome}
+                  </Text>
+                  {modalProfile.bio && (
+                    <Text style={[styles.modalBio, { color: theme.textColor }]}>
+                      {modalProfile.bio}
+                    </Text>
+                  )}
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={() => setModalVisible(false)}
+                  >
+                    <Text style={[styles.closeButtonText, { color: theme.buttonText }]}>
+                      Fechar
+                    </Text>
                   </TouchableOpacity>
                 </ScrollView>
-              ) : <Text style={{color:theme.textColor}}>Perfil não disponível.</Text>}
+              ) : (
+                <Text style={{ color: theme.textColor }}>Perfil não disponível.</Text>
+              )}
             </View>
           </View>
         </Modal>
 
-        {/* Audio modal */}
+        {/* Modal de gravação de áudio */}
         <AudioRecorderModal
           isVisible={audioModalVisible}
-          onClose={()=>setAudioModalVisible(false)}
+          onClose={() => setAudioModalVisible(false)}
           onSendAudio={sendAudioMessage}
         />
       </View>

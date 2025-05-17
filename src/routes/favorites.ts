@@ -53,11 +53,13 @@ export default async function favoriteRoutes(app: FastifyInstance) {
       });
 
       // Registra atividade de adicionar favorito com mensagem amigável (sem exibir ID)
-      const descricao = `${nomeUsuario} adicionou um ${tipo === 'termo' ? 'termo' : 'a anotação'} aos favoritos.`;
+      const descricao = `${nomeUsuario} adicionou um ${tipo === 'termo' ? 'termo' : 'anotação'} aos favoritos.`;
       const acao = "Adicionar Favorito";
       await registrarAtividade(usuarioId, descricao, acao);
 
-      return reply.send({ message: `${tipo === 'termo' ? 'Termo' : 'Anotação'} adicionada aos favoritos com sucesso` });
+      return reply.send({ 
+        message: `${tipo === 'termo' ? 'Termo' : 'Anotação'} adicionada aos favoritos com sucesso` 
+      });
     } catch (error) {
       return reply.status(500).send({ message: 'Erro ao adicionar favorito', error });
     }
@@ -90,11 +92,15 @@ export default async function favoriteRoutes(app: FastifyInstance) {
       await userRef.collection(subcolecao).doc(id).delete();
 
       // Registra atividade de remoção de favorito com mensagem amigável
-      const descricao = `${nomeUsuario} removeu um ${tipo === 'termo' ? 'termo' : 'a anotação'} dos favoritos.`;
+      const descricao = `${nomeUsuario} removeu um ${tipo === 'termo' ? 'termo' : 'anotação'} dos favoritos.`;
+
       const acao = "Remover Favorito";
       await registrarAtividade(usuarioId, descricao, acao);
 
-      return reply.send({ message: `${tipo === 'termo' ? 'Termo' : 'Anotação'} removido dos favoritos com sucesso` });
+      return reply.send({ 
+        message: `${tipo === 'termo' ? 'Termo' : 'Anotação'} removido dos favoritos com sucesso` 
+      });
+      
     } catch (error) {
       return reply.status(500).send({ message: 'Erro ao remover favorito', error });
     }
@@ -128,3 +134,5 @@ export default async function favoriteRoutes(app: FastifyInstance) {
     }
   });
 }
+
+

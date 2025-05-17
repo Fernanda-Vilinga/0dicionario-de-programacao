@@ -76,6 +76,6 @@ export type RootStackParamList = {
   ChatArea: { sessao: SessaoMentoria };
   ResetPassword: { usuarioId: string }; // <- aqui precisa do usuárioId
   ChangePassword: undefined; 
-  Notificacoes: undefined;
+  Notifications: undefined;
 };
 
