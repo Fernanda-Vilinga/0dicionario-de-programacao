@@ -1,5 +1,15 @@
+// SettingsScreen.tsx
+
 import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Switch,
+  TouchableOpacity,
+  Alert,
+  Dimensions,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import HeaderComum from '../HeaderComum';
 import { ThemeContext } from 'src/context/ThemeContext';
@@ -8,40 +18,54 @@ import API_BASE_URL from 'src/config';
 
 const { width } = Dimensions.get('window');
 
-type RootStackParamList = {
-  ResetPassword: { usuarioId: string; tipo: 'RESET' | 'CHANGE' };
-  LoginRegister: undefined;
-  // ... outros
-};
-
 const SettingsScreen: React.FC = () => {
   const { isDarkMode, toggleTheme, theme } = useContext(ThemeContext);
   const navigation = useNavigation<any>();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
   const [userId, setUserId] = useState<string | null>(null);
 
+  // 1️⃣ Carrega userId e flag de notificações ao montar
   useEffect(() => {
     (async () => {
       try {
-        const id = await AsyncStorage.getItem('usuarioId');
+        const [id, storedFlag] = await Promise.all([
+          AsyncStorage.getItem('usuarioId'),
+          AsyncStorage.getItem('notificationsEnabled'),
+        ]);
         setUserId(id);
+        if (storedFlag !== null) {
+          setNotificationsEnabled(storedFlag === 'true');
+        }
       } catch (err) {
         console.error('Erro ao ler AsyncStorage:', err);
       }
     })();
   }, []);
 
-  const toggleNotifications = () => setNotificationsEnabled(prev => !prev);
+  // 2️⃣ Alterna e persiste flag
+  const toggleNotifications = async () => {
+    try {
+      const newValue = !notificationsEnabled;
+      setNotificationsEnabled(newValue);
+      await AsyncStorage.setItem('notificationsEnabled', newValue.toString());
+    } catch (err) {
+      console.error('Erro ao persistir flag de notificações:', err);
+    }
+  };
 
+  // 3️⃣ Excluir conta
   const handleDeleteAccount = async () => {
     if (!userId) {
       Alert.alert('Erro', 'Usuário não encontrado.');
       return;
     }
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/Autoremoverusuario/${userId}`, { method: 'DELETE' });
-      const result = await response.json();
-      if (response.ok) {
+      const resp = await fetch(
+        `${API_BASE_URL}/auth/Autoremoverusuario/${userId}`,
+        { method: 'DELETE' }
+      );
+      const result = await resp.json();
+      if (resp.ok) {
         Alert.alert('Sucesso', result.message);
         await AsyncStorage.clear();
         navigation.dispatch(
@@ -57,46 +81,71 @@ const SettingsScreen: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>      
+     <View>
       <HeaderComum screenName="Definições" />
 
-      <Text style={[styles.title, { color: theme.textColor }]}>Configurações Gerais</Text>
+    <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
+      
+      <Text style={[styles.title, { color: theme.textColor }]}>
+        Configurações Gerais
+      </Text>
 
       <View style={styles.settingRow}>
-        <Text style={[styles.settingText, { color: theme.textColor }]}>Modo Escuro</Text>
+        <Text style={[styles.settingText, { color: theme.textColor }]}>
+          Modo Escuro
+        </Text>
         <Switch value={isDarkMode} onValueChange={toggleTheme} />
       </View>
 
       <View style={styles.settingRow}>
-        <Text style={[styles.settingText, { color: theme.textColor }]}>Notificações</Text>
-        <Switch value={notificationsEnabled} onValueChange={toggleNotifications} />
+        <Text style={[styles.settingText, { color: theme.textColor }]}>
+          Notificações
+        </Text>
+        <Switch
+          value={notificationsEnabled}
+          onValueChange={toggleNotifications}
+        />
       </View>
 
       <TouchableOpacity
-        style={[styles.button, { backgroundColor: '#2979FF' }]}
+        style={[styles.button, { backgroundColor: '#2979FF', width: width * 0.8 }]}
         onPress={() => {
           if (userId) {
-            navigation.navigate('ChangePassword');
-
+            navigation.navigate('ResetPassword', {
+              usuarioId: userId,
+              tipo: 'CHANGE',
+            });
           } else {
             Alert.alert('Erro', 'ID do usuário não encontrado.');
           }
         }}
       >
-        <Text style={[styles.buttonText, { color: theme.buttonText }]}>Alterar Senha</Text>
+        <Text style={[styles.buttonText, { color: theme.buttonText }]}>
+          Alterar Senha
+        </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
+      <TouchableOpacity
+        style={[styles.deleteButton, { width: width * 0.8 }]}
+        onPress={handleDeleteAccount}
+      >
         <Text style={styles.deleteButtonText}>Excluir Conta</Text>
       </TouchableOpacity>
+    </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, marginTop: 40, textAlign: 'center' },
-  settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  container: { flex: 1, padding: 20, alignItems: 'center' },
+  title: { fontSize: 24, fontWeight: 'bold', marginVertical: 20, textAlign: 'center' },
+  settingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 20,
+  },
   settingText: { fontSize: 18 },
   button: { padding: 15, borderRadius: 5, marginVertical: 10 },
   buttonText: { fontWeight: 'bold', textAlign: 'center' },

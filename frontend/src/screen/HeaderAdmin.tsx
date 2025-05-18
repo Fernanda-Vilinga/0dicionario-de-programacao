@@ -1,12 +1,12 @@
-import React, { useEffect, useState, useContext, useMemo } from "react";
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  StatusBar, 
+import React, { useEffect, useState, useMemo, useContext } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  StatusBar,
+  Platform,
   Alert,
-  Platform 
 } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -35,49 +35,65 @@ const HeaderAdmin: React.FC<HeaderProps> = ({ screenName, onOpenSettings }) => {
     nome: "Carregando...",
     profileImage: null,
   });
-  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  // Buscar perfil do usuário
+  // 1️⃣ Carrega perfil do usuário
   useEffect(() => {
-    const fetchUserProfile = async () => {
+    (async () => {
       try {
         const userId = await AsyncStorage.getItem("usuarioId");
         if (!userId) return;
-        const response = await fetch(`${API_BASE_URL}/perfil/${userId}`);
-        const data = await response.json();
-        if (response.ok) {
+        const resp = await fetch(`${API_BASE_URL}/perfil/${userId}`);
+        const data = await resp.json();
+        if (resp.ok) {
           setUser({
             nome: data.nome || data.name || "Usuário",
             profileImage: data.profileImage || null,
           });
         }
-      } catch (error) {
-        console.error("Erro ao buscar perfil:", error);
+      } catch (err) {
+        console.error("Erro ao buscar perfil:", err);
       }
-    };
-    fetchUserProfile();
+    })();
   }, []);
 
-  // Contar notificações não lidas
+  // 2️⃣ Carrega flag de notificações
   useEffect(() => {
-    let isActive = true;
-    const loadUnread = async () => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem("notificationsEnabled");
+        setNotificationsEnabled(stored == null ? true : stored === "true");
+      } catch (err) {
+        console.error("Erro ao ler flag de notificações:", err);
+      }
+    })();
+  }, []);
+
+  // 3️⃣ Conta notificações não lidas (só se habilitado)
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      if (!notificationsEnabled) {
+        if (active) setUnreadCount(0);
+        return;
+      }
       try {
         const count = await countUnreadNotifications();
-        if (isActive) setUnreadCount(count);
-      } catch (error) {
-        console.error("Erro ao contar notificações:", error);
+        if (active) setUnreadCount(count);
+      } catch (err) {
+        console.error("Erro ao contar notificações:", err);
       }
     };
-
-    loadUnread();
-    const interval = setInterval(loadUnread, 30000);
+    load();
+    const iv = setInterval(load, 30000);
     return () => {
-      isActive = false;
-      clearInterval(interval);
+      active = false;
+      clearInterval(iv);
     };
-  }, []);
+  }, [notificationsEnabled]);
 
+  // 4️⃣ Logout
   const handleLogout = async () => {
     try {
       const usuarioId = await AsyncStorage.getItem("usuarioId");
@@ -92,48 +108,59 @@ const HeaderAdmin: React.FC<HeaderProps> = ({ screenName, onOpenSettings }) => {
         Alert.alert("Erro", data.message || "Erro ao sair.");
         return;
       }
-      await AsyncStorage.multiRemove(["usuarioId", "userType"]);
+      // atualiza estado online/offline no seu backend, se necessário
+      await AsyncStorage.multiRemove(["usuarioId", "userType", "notificationsEnabled"]);
       navigation.reset({ index: 0, routes: [{ name: "LoginRegister" }] });
-    } catch (error) {
-      console.error("Erro ao fazer logout:", error);
+    } catch (err) {
+      console.error("Erro ao fazer logout:", err);
       Alert.alert("Erro", "Erro inesperado ao sair.");
     }
   };
 
+  // 5️⃣ Ao tocar no sino
+  const handleNotificationsPress = () => {
+    if (!notificationsEnabled) {
+      Alert.alert("Notificações desativadas");
+      return;
+    }
+    navigation.navigate("Notifications");
+  };
+
   return (
     <View style={styles.container}>
-      {/* Esquerda: logout + nome */}
       <View style={styles.leftSection}>
         <TouchableOpacity
           style={styles.iconButton}
           onPress={onOpenSettings ?? handleLogout}
         >
-          <MaterialIcons
-            name="logout"
-            size={26}
-            color={theme.logoutIconColor}
-          />
+          <MaterialIcons name="logout" size={26} color={theme.logoutIconColor} />
         </TouchableOpacity>
         <Text style={styles.userName}>{user.nome}</Text>
       </View>
 
-      {/* Título centralizado */}
       <Text style={styles.screenName} numberOfLines={1} ellipsizeMode="tail">
         {screenName}
       </Text>
 
-      {/* Direita: notificações, biblioteca */}
       <View style={styles.rightIcons}>
         <TouchableOpacity
           style={styles.iconButton}
-          onPress={() => navigation.navigate("Notifications")}
+          onPress={handleNotificationsPress}
         >
           <Ionicons
-            name="notifications-outline"
+            name={
+              notificationsEnabled
+                ? "notifications-outline"
+                : "notifications-off-outline"
+            }
             size={26}
-            color={theme.notificationIconColor}
+            color={
+              notificationsEnabled
+                ? theme.notificationIconColor
+                : theme.textColorSecondary
+            }
           />
-          {unreadCount > 0 && (
+          {notificationsEnabled && unreadCount > 0 && (
             <View style={styles.badgeContainer}>
               <Text style={styles.badgeText}>{unreadCount}</Text>
             </View>
@@ -162,6 +189,22 @@ const getStyles = (theme: any) =>
       backgroundColor: theme.headerBackground,
       paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 10,
     },
+    leftSection: {
+      flexDirection: "row",
+      alignItems: "center",
+      zIndex: 1,
+    },
+    iconButton: {
+      position: "relative",
+      padding: 5,
+      marginLeft: 10,
+    },
+    userName: {
+      fontSize: 14,
+      color: theme.headerTextColor,
+      opacity: 0.8,
+      marginLeft: 8,
+    },
     screenName: {
       fontSize: 16,
       fontWeight: "bold",
@@ -174,38 +217,22 @@ const getStyles = (theme: any) =>
       flexDirection: "row",
       alignItems: "center",
     },
-    iconButton: {
-      position: 'relative',
-      padding: 5,
-      marginLeft: 10,
-    },
     badgeContainer: {
-      position: 'absolute',
+      position: "absolute",
       top: -4,
       right: -4,
-      backgroundColor: '#FF3B30',
+      backgroundColor: "#FF3B30",
       borderRadius: 8,
       minWidth: 16,
       height: 16,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
       paddingHorizontal: 4,
     },
     badgeText: {
-      color: '#ffffff',
+      color: "#ffffff",
       fontSize: 10,
-      fontWeight: 'bold',
-    },
-    userName: {
-      fontSize: 14,
-      color: theme.headerTextColor,
-      opacity: 0.8,
-      marginLeft: 8,
-    },
-    leftSection: {
-      flexDirection: "row",
-      alignItems: "center",
-      zIndex: 1,
+      fontWeight: "bold",
     },
   });
 

@@ -1,3 +1,5 @@
+// HeaderHome.tsx
+
 import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
@@ -36,9 +38,15 @@ const HeaderHome: React.FC<HeaderProps> = ({ screenName, onOpenSettings }) => {
   });
   const [unreadCount, setUnreadCount] = useState<number>(0);
 
-  // Função para buscar notificações não lidas
+  // Busca o flag e então conta notificações não lidas
   const loadUnread = useCallback(async () => {
     try {
+      const stored = await AsyncStorage.getItem("notificationsEnabled");
+      const enabled = stored === null ? true : stored === "true";
+      if (!enabled) {
+        setUnreadCount(0);
+        return;
+      }
       const count = await countUnreadNotifications();
       setUnreadCount(count);
     } catch (err) {
@@ -47,35 +55,33 @@ const HeaderHome: React.FC<HeaderProps> = ({ screenName, onOpenSettings }) => {
   }, []);
 
   useEffect(() => {
-    // Busca perfil do usuário uma vez
+    // Busca perfil do usuário
     (async () => {
       try {
         const userId = await AsyncStorage.getItem("usuarioId");
         if (!userId) return;
-        const response = await fetch(`${API_BASE_URL}/perfil/${userId}`);
-        const data = await response.json();
-        if (response.ok) {
+        const resp = await fetch(`${API_BASE_URL}/perfil/${userId}`);
+        const data = await resp.json();
+        if (resp.ok) {
           setUser({
             nome: data.nome || data.name || "Usuário",
             profileImage: data.profileImage || null,
           });
         }
-      } catch (error) {
-        console.error("Erro ao buscar perfil:", error);
+      } catch (err) {
+        console.error("Erro ao buscar perfil:", err);
       }
     })();
 
-    // Carrega notificações e agenda polling automático
+    // Inicia badge e polling
     loadUnread();
     const interval = setInterval(loadUnread, 30_000);
-
-    return () => clearInterval(interval); // limpeza ao desmontar
+    return () => clearInterval(interval);
   }, [loadUnread]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={[styles.container, { backgroundColor: colors.card }]}>
-        {/* Avatar e nome */}
         <View style={styles.userContainer}>
           {user.profileImage ? (
             <Image source={{ uri: user.profileImage }} style={styles.userImage} />
@@ -85,18 +91,6 @@ const HeaderHome: React.FC<HeaderProps> = ({ screenName, onOpenSettings }) => {
           <Text style={[styles.userName, { color: colors.text }]}>{user.nome}</Text>
         </View>
 
-        {/* Título da tela 
-         <Text
-          style={[styles.screenName, { color: colors.text }]}
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        >
-          {screenName}
-        </Text>
-        */}
-       
-
-        {/* Ícones à direita */}
         <View style={styles.rightIcons}>
           {/* Menu */}
           <TouchableOpacity style={styles.icon} onPress={onOpenSettings}>
@@ -154,13 +148,6 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 14,
     fontWeight: "bold",
-  },
-  screenName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    flex: 1,
-    textAlign: "center",
-    maxWidth: "45%",
   },
   rightIcons: {
     flexDirection: "row",
