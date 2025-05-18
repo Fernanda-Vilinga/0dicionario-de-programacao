@@ -1,15 +1,15 @@
 import React, { useEffect, useState, useContext, useMemo } from 'react';
-import { 
-  View, 
-  Text, 
-  FlatList, 
-  ActivityIndicator, 
-  Alert, 
-  TouchableOpacity, 
-  Modal, 
-  TextInput, 
+import {
+  View,
+  Text,
+  FlatList,
+  ActivityIndicator,
+  TouchableOpacity,
+  Modal,
+  TextInput,
   StyleSheet,
-  ScrollView
+  ScrollView,
+  Dimensions,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,7 +17,11 @@ import API_BASE_URL from 'src/config';
 import HeaderComum from '../HeaderComum';
 import { ThemeContext } from 'src/context/ThemeContext';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const MODAL_WIDTH = SCREEN_WIDTH * 0.9;
+
 interface Quiz {
+  id: string;
   usuarioId: string;
   pergunta: string;
   opcoes: string[];
@@ -26,56 +30,38 @@ interface Quiz {
   date: string;
 }
 
-const QuizzesScreen = () => {
+const QuizzesScreen: React.FC = () => {
   const { theme } = useContext(ThemeContext);
   const styles = useMemo(() => getStyles(theme), [theme]);
-  
+
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [modalType, setModalType] = useState<'add' | 'edit'>('add');
-  const [usuarioId, setUsuarioId] = useState<string | null>(null);
-  // Estados do formulário do modal
+  const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
   const [quizPergunta, setQuizPergunta] = useState('');
   const [quizCategoria, setQuizCategoria] = useState('');
   const [quizOpcoes, setQuizOpcoes] = useState<string[]>([]);
   const [newOpcao, setNewOpcao] = useState('');
-  const [respostaCorreta, setRespostaCorreta] = useState<number>(0);
-  const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
+  const [respostaCorreta, setRespostaCorreta] = useState(0);
+  const [quizToDeleteId, setQuizToDeleteId] = useState<string | null>(null);
+
+  useEffect(() => { fetchQuizzes(); }, []);
 
   const fetchQuizzes = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/quiz/perguntas`);
       const data: Quiz[] = await response.json();
-  
-      // Ordena os quizzes em ordem alfabética pela categoria
       data.sort((a, b) => a.categoria.localeCompare(b.categoria));
       setQuizzes(data);
     } catch (error) {
-      Alert.alert('Erro', 'Falha ao carregar quizzes');
+      console.error('Falha ao carregar quizzes:', error);
     } finally {
       setLoading(false);
     }
   };
-  
-  useEffect(() => {
-    fetchQuizzes();
-  }, []);
 
-  useEffect(() => {
-    const obterUsuarioId = async () => {
-      try {
-        const idSalvo = await AsyncStorage.getItem('usuarioId');
-        if (idSalvo) {
-          setUsuarioId(idSalvo);
-        }
-      } catch (error) {
-        console.error("Erro ao obter usuário ID:", error);
-      }
-    };
-    obterUsuarioId();
-  }, []);
-  
   const openModal = (type: 'add' | 'edit', quiz?: Quiz) => {
     setModalType(type);
     if (type === 'edit' && quiz) {
@@ -85,93 +71,81 @@ const QuizzesScreen = () => {
       setQuizOpcoes(quiz.opcoes);
       setRespostaCorreta(quiz.respostaCorreta);
     } else {
+      setSelectedQuiz(null);
       setQuizPergunta('');
       setQuizCategoria('');
       setQuizOpcoes([]);
       setNewOpcao('');
       setRespostaCorreta(0);
-      setSelectedQuiz(null);
     }
     setModalVisible(true);
   };
 
-  const closeModal = () => {
-    setModalVisible(false);
-  };
+  const closeModal = () => setModalVisible(false);
 
   const handleAddOpcao = () => {
     if (newOpcao.trim()) {
-      setQuizOpcoes([...quizOpcoes, newOpcao.trim()]);
+      setQuizOpcoes(prev => [...prev, newOpcao.trim()]);
       setNewOpcao('');
     }
   };
 
-  const handleDeleteOpcao = (index: number) => {
-    const newOpcoes = quizOpcoes.filter((_, i) => i !== index);
-    setQuizOpcoes(newOpcoes);
-    if (respostaCorreta >= newOpcoes.length) {
-      setRespostaCorreta(0);
-    }
+  const handleDeleteOpcao = (idx: number) => {
+    const ops = quizOpcoes.filter((_, i) => i !== idx);
+    setQuizOpcoes(ops);
+    if (respostaCorreta >= ops.length) setRespostaCorreta(0);
   };
 
   const handleSaveQuiz = async () => {
-    // Verifica se os campos obrigatórios foram preenchidos
+    console.log('📋 Salvando quiz:', {
+      mode: modalType,
+      selectedId: selectedQuiz?.id,
+      payload: { pergunta: quizPergunta, categoria: quizCategoria, opcoes: quizOpcoes, respostaCorreta }
+    });
+
     if (!quizPergunta.trim() || !quizCategoria.trim() || quizOpcoes.length === 0) {
-      Alert.alert('Erro', 'Preencha todos os campos, adicione pelo menos uma opção e selecione a categoria.');
+      // abrir modal de erro customizado
       return;
     }
-  
-    const payload = {
-      pergunta: quizPergunta,
-      categoria: quizCategoria,
-      opcoes: quizOpcoes,
-      respostaCorreta: respostaCorreta,
-    };
-  
+
+    const payload = { pergunta: quizPergunta, categoria: quizCategoria, opcoes: quizOpcoes, respostaCorreta };
+    const isEdit = modalType === 'edit' && selectedQuiz;
+    const url = isEdit
+      ? `${API_BASE_URL}/quiz/perguntas/${selectedQuiz!.id}`
+      : `${API_BASE_URL}/quiz/perguntas`;
+    const method = isEdit ? 'PUT' : 'POST';
+    console.log('➡️ Fetch', method, url);
+
     try {
-      const isEditing = modalType === 'edit' && selectedQuiz?.usuarioId;
-      const url = isEditing
-        ? `${API_BASE_URL}/quiz/perguntas/${selectedQuiz.usuarioId}`
-        : `${API_BASE_URL}/quiz/perguntas`;
-      const method = isEditing ? 'PUT' : 'POST';
-  
-      const response = await fetch(url, {
+      const resp = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payload)
       });
-  
-      const responseData = await response.json();
-  
-      if (!response.ok) {
-        throw new Error(responseData.message || 'Erro ao salvar o quiz.');
-      }
-  
-      Alert.alert('Sucesso', isEditing ? 'Quiz atualizado com sucesso!' : 'Quiz criado com sucesso!');
-      fetchQuizzes();
+      if (!resp.ok) throw new Error(`Status ${resp.status}`);
+      console.log('✅ Quiz salvo com sucesso');
+      await fetchQuizzes();
       closeModal();
     } catch (error) {
       console.error('Erro ao salvar quiz:', error);
-      Alert.alert('Erro', error instanceof Error ? error.message : 'Ocorreu um erro desconhecido.');
     }
   };
-  
-  const handleDeleteQuiz = async (id: string): Promise<void> => {
+
+  const confirmDelete = (id: string) => {
+    setQuizToDeleteId(id);
+    setDeleteModalVisible(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!quizToDeleteId) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/quiz/perguntas/${id}`, {
-        method: 'DELETE',
-      });
-      
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.message || 'Falha ao excluir o quiz');
-      }
-      
-      Alert.alert('Sucesso', 'Quiz excluído!');
-      setQuizzes(prev => prev.filter(quiz => quiz.usuarioId !== id));
+      const resp = await fetch(`${API_BASE_URL}/quiz/perguntas/${quizToDeleteId}`, { method: 'DELETE' });
+      if (!resp.ok) throw new Error(`Status ${resp.status}`);
+      console.log('✅ Quiz excluído:', quizToDeleteId);
+      setQuizzes(prev => prev.filter(q => q.id !== quizToDeleteId));
+      setDeleteModalVisible(false);
     } catch (error) {
       console.error('Erro ao excluir quiz:', error);
-      Alert.alert('Erro', error instanceof Error ? error.message : 'Ocorreu um erro desconhecido');
     }
   };
 
@@ -183,94 +157,78 @@ const QuizzesScreen = () => {
       ) : (
         <FlatList
           data={quizzes}
+          keyExtractor={item => item.id}
           renderItem={({ item }) => (
             <View style={styles.quizCard}>
               <Text style={styles.quizTitle}>{item.pergunta}</Text>
-              <Text style={styles.quizCategory}>{item.categoria || 'Sem categoria'}</Text>
+              <Text style={styles.quizCategory}>{item.categoria}</Text>
               <View style={styles.actions}>
                 <TouchableOpacity style={styles.button} onPress={() => openModal('edit', item)}>
                   <Text style={styles.buttonText}>Editar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteQuiz(item.usuarioId)}>
+                <TouchableOpacity style={styles.deleteButton} onPress={() => confirmDelete(item.id)}>
                   <Text style={styles.buttonText}>Excluir</Text>
                 </TouchableOpacity>
               </View>
             </View>
           )}
-          keyExtractor={(item) => item.usuarioId}
           contentContainerStyle={styles.listContent}
         />
       )}
+
       <TouchableOpacity style={styles.addButton} onPress={() => openModal('add')}>
         <Text style={styles.buttonText}>Adicionar Quiz</Text>
       </TouchableOpacity>
 
-      <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={closeModal}>
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              {modalType === 'add' ? 'Adicionar Quiz' : 'Editar Quiz'}
-            </Text>
-            <TextInput 
-              style={styles.input} 
-              placeholder="Título da Pergunta" 
+      {/* Modal add/edit */}
+      <Modal visible={modalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>{modalType === 'add' ? 'Adicionar' : 'Editar'} Quiz</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Pergunta"
               placeholderTextColor={theme.placeholderTextColor}
-              value={quizPergunta} 
-              onChangeText={setQuizPergunta} 
+              value={quizPergunta}
+              onChangeText={setQuizPergunta}
             />
-            <View style={styles.pickerContainer}>
-              <Text style={styles.label}>Categoria</Text>
-              <Picker
-                selectedValue={quizCategoria}
-                onValueChange={(itemValue) => setQuizCategoria(itemValue)}
-                style={styles.picker}
-              >
-                <Picker.Item label="Escolha a categoria" value="" />
-                <Picker.Item label="Desenvolvimento Web" value="Desenvolvimento Web" />
-                <Picker.Item label="Desenvolvimento Mobile" value="Desenvolvimento Mobile" />
-                <Picker.Item label="Ciência de Dados" value="Ciência de Dados" />
-                <Picker.Item label="DevOps & Infraestrutura" value="DevOps & Infraestrutura" />
-                <Picker.Item label="Desenvolvimento de Jogos" value="Desenvolvimento de Jogos" />
-                <Picker.Item label="Programação de Sistemas" value="Programação de Sistemas" />
-              </Picker>
-            </View>
-            <Text style={styles.label}>Opções de Resposta</Text>
-            <ScrollView style={{ maxHeight: 150, marginBottom: 10 }}>
-              {quizOpcoes.map((opcao, index) => (
-                <View key={index} style={styles.opcaoContainer}>
-                  <Text style={styles.opcaoText}>{`${index + 1}. ${opcao}`}</Text>
-                  <TouchableOpacity style={styles.deleteOpcaoButton} onPress={() => handleDeleteOpcao(index)}>
-                    <Text style={styles.deleteOpcaoButtonText}>X</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Categoria"
+              placeholderTextColor={theme.placeholderTextColor}
+              value={quizCategoria}
+              onChangeText={setQuizCategoria}
+            />
+            <ScrollView style={styles.opcoesList}>
+              {quizOpcoes.map((op, i) => (
+                <View key={i} style={styles.opcaoRow}>
+                  <Text style={styles.opcaoText}>{op}</Text>
+                  <TouchableOpacity onPress={() => handleDeleteOpcao(i)}>
+                    <Text style={{ color: 'red' }}>X</Text>
                   </TouchableOpacity>
                 </View>
               ))}
             </ScrollView>
-            <View style={styles.addOpcaoContainer}>
+            <View style={styles.addOpcaoRow}>
               <TextInput
-                style={styles.inputOpcao}
-                placeholder="Adicionar opção"
+                style={[styles.input, { flex: 1 }]}
+                placeholder="Nova opção"
                 placeholderTextColor={theme.placeholderTextColor}
                 value={newOpcao}
                 onChangeText={setNewOpcao}
               />
-              <TouchableOpacity style={styles.addOpcaoButton} onPress={handleAddOpcao}>
-                <Text style={styles.addOpcaoButtonText}>Adicionar</Text>
+              <TouchableOpacity style={[styles.button, { marginLeft: 8 }]} onPress={handleAddOpcao}>
+                <Text style={styles.buttonText}>+</Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.pickerContainer}>
-              <Text style={styles.label}>Resposta Correta</Text>
-              <Picker
-                selectedValue={respostaCorreta}
-                onValueChange={(itemValue) => setRespostaCorreta(itemValue)}
-                style={styles.picker}
-              >
-                {quizOpcoes.map((_, index) => (
-                  <Picker.Item key={index} label={`Opção ${index + 1}`} value={index} />
-                ))}
-              </Picker>
-            </View>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalButton} onPress={handleSaveQuiz}>
+            <Text style={styles.label}>Resposta Correta</Text>
+            <Picker selectedValue={respostaCorreta} onValueChange={setRespostaCorreta} style={styles.picker}>
+              {quizOpcoes.map((_, i) => (
+                <Picker.Item key={i} label={`Opção ${i + 1}`} value={i} />
+              ))}
+            </Picker>
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.button} onPress={handleSaveQuiz}>
                 <Text style={styles.buttonText}>Salvar</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.cancelButton} onPress={closeModal}>
@@ -280,173 +238,52 @@ const QuizzesScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Modal delete confirmation */}
+      <Modal visible={deleteModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmBox}>
+            <Text style={styles.confirmText}>Confirmar exclusão?</Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setDeleteModalVisible(false)}>
+                <Text style={styles.buttonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.deleteButton} onPress={handleConfirmDelete}>
+                <Text style={styles.buttonText}>Excluir</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
 
-const getStyles = (theme: any) =>
-  StyleSheet.create({
-    container: { 
-      flex: 1, 
-      backgroundColor: theme.backgroundColor, 
-      paddingHorizontal: 20, 
-      paddingTop: 10 
-    },
-    quizCard: { 
-      padding: 15, 
-      marginVertical: 8, 
-      backgroundColor: theme.cardBackground, 
-      borderRadius: 10, 
-      elevation: 3 
-    },
-    quizTitle: { 
-      fontSize: 18, 
-      fontWeight: 'bold', 
-      color: theme.textColor 
-    },
-    quizCategory: { 
-      fontSize: 14, 
-      color: theme.textColorSecondary, 
-      marginTop: 2 
-    },
-    actions: { 
-      flexDirection: 'row', 
-      marginTop: 10, 
-      justifyContent: 'flex-start' 
-      // Caso precise de espaçamento entre botões, pode usar propriedades adicionais
-    },
-    button: { 
-      backgroundColor: theme.buttonBackground, 
-      paddingVertical: 8, 
-      paddingHorizontal: 15, 
-      borderRadius: 5 
-    },
-    deleteButton: { 
-      backgroundColor: 'red', 
-      paddingVertical: 8, 
-      paddingHorizontal: 15, 
-      borderRadius: 5 
-    },
-    addButton: { 
-      backgroundColor: theme.buttonBackground, 
-      paddingVertical: 12, 
-      borderRadius: 8, 
-      alignItems: 'center', 
-      position: 'absolute', 
-      bottom: 20, 
-      alignSelf: 'center', 
-      width: '90%' 
-    },
-    buttonText: { 
-      color: theme.buttonText || '#fff', 
-      fontWeight: 'bold', 
-      textAlign: 'center' 
-    },
-    listContent: { 
-      paddingBottom: 80 
-    },
-    modalContainer: { 
-      flex: 1, 
-      justifyContent: 'center', 
-      alignItems: 'center', 
-      backgroundColor: 'rgba(0, 0, 0, 0.5)' 
-    },
-    modalContent: { 
-      width: '80%', 
-      backgroundColor: theme.backgroundColor, 
-      padding: 20, 
-      borderRadius: 10, 
-      elevation: 5 
-    },
-    modalTitle: { 
-      fontSize: 18, 
-      fontWeight: 'bold', 
-      marginBottom: 10, 
-      textAlign: 'center', 
-      color: theme.textColor 
-    },
-    input: { 
-      borderWidth: 1, 
-      borderColor: theme.borderColor, 
-      padding: 10, 
-      borderRadius: 5, 
-      marginBottom: 10, 
-      color: theme.textColor 
-    },
-    modalButtons: { 
-      flexDirection: 'row', 
-      justifyContent: 'space-between', 
-      marginTop: 10 
-    },
-    modalButton: { 
-      backgroundColor: theme.buttonBackground, 
-      paddingVertical: 10, 
-      paddingHorizontal: 20, 
-      borderRadius: 5 
-    },
-    cancelButton: { 
-      backgroundColor: 'gray', 
-      paddingVertical: 10, 
-      paddingHorizontal: 20, 
-      borderRadius: 5 
-    },
-    pickerContainer: { 
-      marginBottom: 10 
-    },
-    label: { 
-      fontSize: 16, 
-      fontWeight: 'bold', 
-      marginBottom: 5, 
-      color: theme.textColor 
-    },
-    picker: { 
-      height: 50, 
-      width: '100%', 
-      borderWidth: 1, 
-      borderColor: theme.borderColor 
-    },
-    opcaoContainer: { 
-      flexDirection: 'row', 
-      alignItems: 'center', 
-      marginBottom: 5 
-    },
-    opcaoText: { 
-      flex: 1, 
-      fontSize: 14, 
-      color: theme.textColor 
-    },
-    deleteOpcaoButton: { 
-      backgroundColor: 'red', 
-      padding: 5, 
-      borderRadius: 5 
-    },
-    deleteOpcaoButtonText: { 
-      color: '#fff', 
-      fontWeight: 'bold' 
-    },
-    addOpcaoContainer: { 
-      flexDirection: 'row', 
-      alignItems: 'center', 
-      marginBottom: 10 
-    },
-    inputOpcao: { 
-      flex: 1, 
-      borderWidth: 1, 
-      borderColor: theme.borderColor, 
-      padding: 10, 
-      borderRadius: 5, 
-      color: theme.textColor 
-    },
-    addOpcaoButton: { 
-      backgroundColor: theme.buttonBackground, 
-      padding: 10, 
-      borderRadius: 5, 
-      marginLeft: 10 
-    },
-    addOpcaoButtonText: { 
-      color: theme.buttonText || '#fff', 
-      fontWeight: 'bold' 
-    },
-  });
+const getStyles = (theme: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.backgroundColor, padding: 20 },
+  quizCard: { backgroundColor: theme.cardBackground, padding: 12, marginVertical: 8, borderRadius: 8 },
+  quizTitle: { fontSize: 16, fontWeight: 'bold', color: theme.textColor },
+  quizCategory: { fontSize: 14, color: theme.textColorSecondary, marginTop: 4 },
+  actions: { flexDirection: 'row', marginTop: 10 },
+  button: { backgroundColor: theme.buttonBackground, padding: 8, borderRadius: 5, marginRight: 8 },
+  deleteButton: { backgroundColor: 'red', padding: 8, borderRadius: 5 },
+  buttonText: { color: theme.buttonText || '#fff', fontWeight: 'bold' },
+  addButton: { backgroundColor: theme.buttonBackground, padding: 12, borderRadius: 8, position: 'absolute', bottom: 20, alignSelf: 'center', width: '90%' },
+  listContent: { paddingBottom: 80 },
+  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
+  modalBox: { width: MODAL_WIDTH, backgroundColor: theme.backgroundColor, padding: 16, borderRadius: 10 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, color: theme.textColor, textAlign: 'center' },
+  input: { borderWidth: 1, borderColor: theme.borderColor, padding: 10, borderRadius: 5, marginBottom: 10, color: theme.textColor },
+  opcoesList: { maxHeight: 100, marginBottom: 10 },
+  opcaoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 },
+  opcaoText: { color: theme.textColor },
+  addOpcaoRow: { flexDirection: 'row', marginBottom: 10 },
+  label: { color: theme.textColor, fontWeight: 'bold', marginBottom: 4 },
+  picker: { borderWidth: 1, borderColor: theme.borderColor, borderRadius: 5, marginBottom: 10 },
+  modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+  cancelButton: { backgroundColor: 'gray', padding: 10, borderRadius: 5, flex: 1, marginRight: 8, alignItems: 'center' },
+  confirmBox: { width: MODAL_WIDTH * 0.8, backgroundColor: theme.backgroundColor, padding: 20, borderRadius: 10, alignItems: 'center' },
+  confirmText: { color: theme.textColor, fontSize: 16, marginBottom: 12 },
+});
 
 export default QuizzesScreen;

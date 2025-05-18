@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import db from '../firebaseConfig';
+import { registrarAtividade, dispararEvento } from './notificationsservice';
 
 interface Termo {
   id: string;
@@ -26,23 +27,9 @@ interface TermoQuery {
   ordem?: 'asc' | 'desc';
 }
 
-// Função auxiliar para registrar atividade
-export async function registrarAtividade(userId: string, descricao: string, acao: string) {
-  try {
-    await db.collection('atividades').add({
-      userId,
-      description: descricao,
-      action: acao,
-      createdAt: new Date(),
-    });
-  } catch (error) {
-    console.error('Erro ao registrar atividade:', error);
-  }
-}
-
 export default async function dicionarioRoutes(app: FastifyInstance) {
 
-  // 🔍 Rota para buscar um termo específico (prefix match + case sensitive)
+  // 🔍 Rota para buscar um termo específico
   app.get('/dicionario/termos', async (req: FastifyRequest<{ Querystring: TermoQuery }>, reply: FastifyReply) => {
     const { termo } = req.query;
     if (!termo) return reply.status(400).send({ message: 'Termo não fornecido.' });
@@ -90,6 +77,7 @@ export default async function dicionarioRoutes(app: FastifyInstance) {
       return reply.status(500).send({ message: 'Erro ao buscar os termos' });
     }
   });
+
   // GET one term by id
   app.get('/dicionario/termos/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
@@ -100,7 +88,7 @@ export default async function dicionarioRoutes(app: FastifyInstance) {
     return reply.send({ id: doc.id, ...doc.data() });
   });
 
-  // ✅ Rota para adicionar um termo e registrar a atividade
+  // ✅ Rota para adicionar um termo e registrar a atividade + notificação
   app.post('/dicionario/termo', async (req: FastifyRequest<{ Body: TermoBody }>, reply: FastifyReply) => {
     const { termo, definicao, exemplos, linguagem, categoria } = req.body;
     if (!termo || !definicao) return reply.status(400).send({ message: 'Preencha todos os campos obrigatórios.' });
@@ -115,8 +103,9 @@ export default async function dicionarioRoutes(app: FastifyInstance) {
       });
       const userId = (req.headers['x-user-id'] as string) || 'sistema';
       const descricao = `O termo '${termo}' foi adicionado com sucesso ao dicionário.`;
-      const acao = 'Adicionar termo';
-      await registrarAtividade(userId, descricao, acao);
+      await registrarAtividade(userId, descricao, 'dicionario.adicionar');
+      // Notificar todos usuários e admins
+      await dispararEvento('dicionario.adicionar', userId, { termo });
       return reply.status(201).send({ message: 'Termo adicionado com sucesso.', id: novoRef.id });
     } catch (error) {
       console.error('Erro ao adicionar termo:', error);
@@ -124,7 +113,7 @@ export default async function dicionarioRoutes(app: FastifyInstance) {
     }
   });
 
-  // PUT: atualizar termo
+  // PUT: atualizar termo + notificação
   app.put('/dicionario/termo/:id', async (
     req: FastifyRequest<{ Params: { id: string }; Body: Partial<TermoBody> }>,
     reply: FastifyReply
@@ -140,9 +129,10 @@ export default async function dicionarioRoutes(app: FastifyInstance) {
         ...updates,
         termo_lower: updates.termo ? updates.termo.toLowerCase() : snap.data()?.termo_lower
       });
-      const descricao = `Termo '${id}' atualizado com sucesso.`;
-      const acao = 'Atualizar termo';
-      await registrarAtividade(userId, descricao, acao);
+      const descricao = `Termo '${updates.termo || id}' atualizado com sucesso.`;
+      await registrarAtividade(userId, descricao, 'dicionario.atualizar');
+      // Notificar todos usuários e admins
+      await dispararEvento('dicionario.atualizar', userId, { termo: updates.termo || '' });
       return reply.send({ message: 'Termo atualizado com sucesso.' });
     } catch (error) {
       console.error('Erro ao atualizar termo:', error);
@@ -150,7 +140,7 @@ export default async function dicionarioRoutes(app: FastifyInstance) {
     }
   });
 
-  // DELETE: remover termo
+  // DELETE: remover termo (sem notificação)
   app.delete('/dicionario/termo/:id', async (
     req: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply
@@ -163,8 +153,7 @@ export default async function dicionarioRoutes(app: FastifyInstance) {
       if (!snap.exists) return reply.status(404).send({ message: 'Termo não encontrado.' });
       await ref.delete();
       const descricao = `Termo '${id}' removido com sucesso.`;
-      const acao = 'Deletar termo';
-      await registrarAtividade(userId, descricao, acao);
+      await registrarAtividade(userId, descricao, 'dicionario.deletar');
       return reply.send({ message: 'Termo deletado com sucesso.' });
     } catch (error) {
       console.error('Erro ao deletar termo:', error);

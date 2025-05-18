@@ -12,28 +12,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.registrarAtividade = registrarAtividade;
 exports.default = dicionarioRoutes;
 const firebaseConfig_1 = __importDefault(require("../firebaseConfig"));
-// Função auxiliar para registrar atividade
-function registrarAtividade(userId, descricao, acao) {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            yield firebaseConfig_1.default.collection('atividades').add({
-                userId,
-                description: descricao,
-                action: acao,
-                createdAt: new Date(),
-            });
-        }
-        catch (error) {
-            console.error('Erro ao registrar atividade:', error);
-        }
-    });
-}
+const notificationsservice_1 = require("./notificationsservice");
 function dicionarioRoutes(app) {
     return __awaiter(this, void 0, void 0, function* () {
-        // 🔍 Rota para buscar um termo específico (prefix match + case sensitive)
+        // 🔍 Rota para buscar um termo específico
         app.get('/dicionario/termos', (req, reply) => __awaiter(this, void 0, void 0, function* () {
             const { termo } = req.query;
             if (!termo)
@@ -97,7 +81,7 @@ function dicionarioRoutes(app) {
             }
             return reply.send(Object.assign({ id: doc.id }, doc.data()));
         }));
-        // ✅ Rota para adicionar um termo e registrar a atividade
+        // ✅ Rota para adicionar um termo e registrar a atividade + notificação
         app.post('/dicionario/termo', (req, reply) => __awaiter(this, void 0, void 0, function* () {
             const { termo, definicao, exemplos, linguagem, categoria } = req.body;
             if (!termo || !definicao)
@@ -113,8 +97,9 @@ function dicionarioRoutes(app) {
                 });
                 const userId = req.headers['x-user-id'] || 'sistema';
                 const descricao = `O termo '${termo}' foi adicionado com sucesso ao dicionário.`;
-                const acao = 'Adicionar termo';
-                yield registrarAtividade(userId, descricao, acao);
+                yield (0, notificationsservice_1.registrarAtividade)(userId, descricao, 'dicionario.adicionar');
+                // Notificar todos usuários e admins
+                yield (0, notificationsservice_1.dispararEvento)('dicionario.adicionar', userId, { termo });
                 return reply.status(201).send({ message: 'Termo adicionado com sucesso.', id: novoRef.id });
             }
             catch (error) {
@@ -122,7 +107,7 @@ function dicionarioRoutes(app) {
                 return reply.status(500).send({ message: 'Erro ao adicionar termo.' });
             }
         }));
-        // PUT: atualizar termo
+        // PUT: atualizar termo + notificação
         app.put('/dicionario/termo/:id', (req, reply) => __awaiter(this, void 0, void 0, function* () {
             var _a;
             const { id } = req.params;
@@ -134,9 +119,10 @@ function dicionarioRoutes(app) {
                 if (!snap.exists)
                     return reply.status(404).send({ message: 'Termo não encontrado.' });
                 yield ref.update(Object.assign(Object.assign({}, updates), { termo_lower: updates.termo ? updates.termo.toLowerCase() : (_a = snap.data()) === null || _a === void 0 ? void 0 : _a.termo_lower }));
-                const descricao = `Termo '${id}' atualizado com sucesso.`;
-                const acao = 'Atualizar termo';
-                yield registrarAtividade(userId, descricao, acao);
+                const descricao = `Termo '${updates.termo || id}' atualizado com sucesso.`;
+                yield (0, notificationsservice_1.registrarAtividade)(userId, descricao, 'dicionario.atualizar');
+                // Notificar todos usuários e admins
+                yield (0, notificationsservice_1.dispararEvento)('dicionario.atualizar', userId, { termo: updates.termo || '' });
                 return reply.send({ message: 'Termo atualizado com sucesso.' });
             }
             catch (error) {
@@ -144,7 +130,7 @@ function dicionarioRoutes(app) {
                 return reply.status(500).send({ message: 'Erro ao atualizar termo.' });
             }
         }));
-        // DELETE: remover termo
+        // DELETE: remover termo (sem notificação)
         app.delete('/dicionario/termo/:id', (req, reply) => __awaiter(this, void 0, void 0, function* () {
             const { id } = req.params;
             const userId = req.headers['x-user-id'] || 'sistema';
@@ -155,8 +141,7 @@ function dicionarioRoutes(app) {
                     return reply.status(404).send({ message: 'Termo não encontrado.' });
                 yield ref.delete();
                 const descricao = `Termo '${id}' removido com sucesso.`;
-                const acao = 'Deletar termo';
-                yield registrarAtividade(userId, descricao, acao);
+                yield (0, notificationsservice_1.registrarAtividade)(userId, descricao, 'dicionario.deletar');
                 return reply.send({ message: 'Termo deletado com sucesso.' });
             }
             catch (error) {

@@ -112,13 +112,13 @@ const SugestaoScreen = () => {
         borderRadius: 12,
         overflow: "hidden",
         marginBottom: 10,
-        backgroundColor: theme.cardBackground,
+        backgroundColor: theme.backgroundColor,
       },
       picker: {
         height: 50,
         width: "100%",
         color: theme.textColor,
-        backgroundColor: theme.cardBackground, // Fundo do picker adaptado ao tema
+        backgroundColor: theme.backgroundColor, // Fundo do picker adaptado ao tema
       },
       input: {
         borderColor: theme.borderColor,

@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import db from '../firebaseConfig';
+import { registrarAtividade, dispararEvento } from './notificationsservice';
 
 interface AgendarMentoriaBody {
   usuarioId?: string;
@@ -26,18 +27,10 @@ interface AvaliarMentoriaBody {
   avaliadorId: string;
 }
 
-// Função auxiliar para registrar atividade (fire-and-forget)
-export function registrarAtividade(userId: string, descricao: string, acao: string) {
-  db.collection('atividades')
-    .add({
-      userId,
-      description: descricao,
-      action: acao,
-      createdAt: new Date(), // Usamos a data atual
-    })
-    .catch(error => {
-      console.error('Erro ao registrar atividade:', error);
-    });
+// Helper to parse timestamp
+function converterTimestampParaDate(val: any): Date {
+  if (val instanceof Timestamp) return val.toDate();
+  return new Date(val);
 }
 
 function criarDataHoraLocal(data: string, horario: string): Date {
@@ -46,46 +39,21 @@ function criarDataHoraLocal(data: string, horario: string): Date {
   return new Date(ano, mes - 1, dia, hora, minuto);
 }
 
-/**
- * Converte um timestamp do Firestore para objeto Date.
- * Se o valor já for Date ou string, tenta converter diretamente.
- */
-import { Timestamp } from 'firebase-admin/firestore';
-
-function converterTimestampParaDate(timestamp: any): Date {
-  if (timestamp instanceof Timestamp) {
-    return timestamp.toDate();
-  }
-  // Se já for Date ou string/number convertível
-  return new Date(timestamp);
-}
-
-/**
- * Verifica e atualiza o status de uma sessão.
- * - Se o status for "pendente" e já passou do início → "expirada".
- * - Se o status for "aceita" e o horário atual está entre o início e o fim:
- *     → Verifica se já não existe outra sessão "em_curso" para este mentor.
- *       Se não houver, atualiza para "em_curso". Caso haja, atualiza para "cancelada".
- * - Se o status for "aceita" ou "em_curso" e já passou do fim → "finalizada".
- */
 async function verificarEAtualizarSessao(docId: string, sessaoData: any): Promise<string> {
   const agora = new Date();
   const inicio = converterTimestampParaDate(sessaoData.dataHoraInicio);
   const fim = converterTimestampParaDate(sessaoData.dataHoraFim);
-
   let novoStatus = sessaoData.status;
 
   if (sessaoData.status === 'pendente' && agora > inicio) {
     novoStatus = 'expirada';
   } else if (sessaoData.status === 'aceita' && agora >= inicio && agora < fim) {
-    // Verifica se já existe uma sessão em curso para este mentor neste horário
-    const snapshot = await db.collection('sessaoMentoria')
+    const snap = await db.collection('sessaoMentoria')
       .where('mentorId', '==', sessaoData.mentorId)
       .where('status', '==', 'em_curso')
       .where('dataHoraFim', '>', inicio)
       .get();
-    
-    if (snapshot.empty) {
+    if (snap.empty) {
       novoStatus = 'em_curso';
     } else {
       novoStatus = 'cancelada';
@@ -101,17 +69,14 @@ async function verificarEAtualizarSessao(docId: string, sessaoData: any): Promis
   if (novoStatus !== sessaoData.status) {
     await db.collection('sessaoMentoria').doc(docId).update({ status: novoStatus });
   }
-
   return novoStatus;
 }
 
 export default async function mentoriaRoutes(app: FastifyInstance) {
-
-  // Rota para agendar sessão
+  // Agendar sessão
   app.post('/mentoria/agendar', async (req: FastifyRequest<{ Body: AgendarMentoriaBody }>, reply: FastifyReply) => {
     const usuarioId = (req as any).user?.id || req.body.usuarioId;
     const { mentorId, data, horario, categoria } = req.body;
-
     if (!usuarioId || !mentorId || !data || !horario || !categoria) {
       return reply.status(400).send({ message: 'Preencha todos os campos obrigatórios.' });
     }
@@ -119,12 +84,9 @@ export default async function mentoriaRoutes(app: FastifyInstance) {
     try {
       const dataHoraInicio = criarDataHoraLocal(data, horario);
       const dataHoraFim = new Date(dataHoraInicio.getTime() + 30 * 60000);
-      const agora = new Date();
-
-      if (dataHoraInicio <= agora) {
+      if (dataHoraInicio <= new Date()) {
         return reply.status(400).send({ message: 'A mentoria deve ser agendada para uma data futura.' });
       }
-
       const newSession = await db.collection('sessaoMentoria').add({
         usuarioId,
         mentorId,
@@ -137,10 +99,10 @@ export default async function mentoriaRoutes(app: FastifyInstance) {
         dataHoraFim
       });
 
-      // Registra atividade de agendamento (fire-and-forget)
       const descricao = `Agendou uma sessão de mentoria para ${data} às ${horario}.`;
-      const acao = "Agendar Mentoria";
-      registrarAtividade(usuarioId, descricao, acao);
+      registrarAtividade(usuarioId, descricao, 'mentoria.agendar');
+      // Notificação
+      await dispararEvento('mentoria.agendar', usuarioId, { usuarioNome: usuarioId, data, horario });
 
       return reply.status(201).send({ message: 'Mentoria solicitada com sucesso.', id: newSession.id });
     } catch (error) {
@@ -149,42 +111,32 @@ export default async function mentoriaRoutes(app: FastifyInstance) {
     }
   });
 
-  // Rota para atualizar sessões vencidas / em curso / finalizadas
+  // Expirar sessões
   app.patch('/mentoria/expirar-sessoes', async (req, reply) => {
     try {
       const snapshot = await db.collection('sessaoMentoria')
         .where('status', 'in', ['pendente', 'aceita', 'em_curso'])
         .get();
-
       let atualizadas = 0;
       for (const doc of snapshot.docs) {
-        const sessao = doc.data();
-        if (!sessao?.dataHoraInicio) continue;
-        const novoStatus = await verificarEAtualizarSessao(doc.id, sessao);
-        if (novoStatus !== sessao.status) atualizadas++;
+        const novo = await verificarEAtualizarSessao(doc.id, doc.data());
+        if (novo !== doc.data().status) atualizadas++;
       }
-
-      return reply.send({ message: `${atualizadas} sessões atualizadas com novo status.` });
+      return reply.send({ message: `${atualizadas} sessões atualizadas.` });
     } catch (error) {
       console.error(error);
-      return reply.status(500).send({ message: 'Erro ao atualizar sessões vencidas.' });
+      return reply.status(500).send({ message: 'Erro ao atualizar sessões.' });
     }
   });
 
-  // Rota para aceitar sessão
+  // Aceitar sessão
   app.patch('/mentoria/:id/aceitar', async (req, reply) => {
     const { id } = req.params as { id: string };
     try {
       await db.collection('sessaoMentoria').doc(id).update({ status: 'aceita' });
-      
-      // Registra atividade de aceitação (fire-and-forget)
       const userId = (req as any).user?.id || 'sistema';
-const descricao = `Sessão de mentoria aceita com sucesso.`;
-const acao = "Aceitar Mentoria";
-registrarAtividade(userId, descricao, acao);
-
-   
-     
+      registrarAtividade(userId, 'Sessão de mentoria aceita.', 'mentoria.aceitar');
+      await dispararEvento('mentoria.aceitar', userId, { mentorNome: userId });
       return reply.send({ message: 'Mentoria aceita com sucesso.' });
     } catch (error) {
       console.error(error);
@@ -192,19 +144,15 @@ registrarAtividade(userId, descricao, acao);
     }
   });
 
-  // Rota para rejeitar sessão
+  // Rejeitar sessão
   app.patch('/mentoria/:id/rejeitar', async (req: FastifyRequest<{ Body: RejeitarMentoriaBody }>, reply: FastifyReply) => {
     const { id } = req.params as { id: string };
     const { motivo } = req.body;
     try {
       await db.collection('sessaoMentoria').doc(id).update({ status: 'rejeitada', motivoRejeicao: motivo });
-
-      // Registra atividade de rejeição (fire-and-forget)
       const userId = (req as any).user?.id || 'sistema';
-const descricao = `Sessão de mentoria cancelada. Motivo: ${motivo || 'não informado'}.`;
-      const acao = "Rejeitar Mentoria";
-      registrarAtividade(userId, descricao, acao);
-
+      registrarAtividade(userId, `Sessão rejeitada. Motivo: ${motivo}.`, 'mentoria.rejeitar');
+      await dispararEvento('mentoria.rejeitar', userId, { mentorNome: userId, motivo });
       return reply.send({ message: 'Mentoria rejeitada com sucesso.' });
     } catch (error) {
       console.error(error);
@@ -212,20 +160,15 @@ const descricao = `Sessão de mentoria cancelada. Motivo: ${motivo || 'não info
     }
   });
 
-  // Rota para cancelar sessão
+  // Cancelar sessão
   app.patch('/mentoria/:id/cancelar', async (req: FastifyRequest<{ Body: CancelarMentoriaBody }>, reply: FastifyReply) => {
     const { id } = req.params as { id: string };
     const { motivo } = req.body;
     try {
       await db.collection('sessaoMentoria').doc(id).update({ status: 'cancelada', motivoCancelamento: motivo });
-
-      // Registra atividade de cancelamento (fire-and-forget)
       const userId = (req as any).user?.id || 'sistema';
-      const descricao = `Sessão de mentoria rejeitada. Motivo: ${motivo || 'não informado'}.`;
-      const acao = "Rejeitar Mentoria";
-      registrarAtividade(userId, descricao, acao);
-      
-
+      registrarAtividade(userId, `Sessão cancelada. Motivo: ${motivo}.`, 'mentoria.cancelar');
+      await dispararEvento('mentoria.cancelar', userId, { usuarioNome: userId, motivo });
       return reply.send({ message: 'Mentoria cancelada com sucesso.' });
     } catch (error) {
       console.error(error);
@@ -233,14 +176,14 @@ const descricao = `Sessão de mentoria cancelada. Motivo: ${motivo || 'não info
     }
   });
 
-  // Rota para buscar todas as mentorias (lista completa com atualização automática)
+  // Listar todas as mentorias
   app.get('/mentoria', async (req, reply) => {
     try {
       const snapshot = await db.collection('sessaoMentoria').get();
-      const mentorias = await Promise.all(snapshot.docs.map(async (doc) => {
+      const mentorias = await Promise.all(snapshot.docs.map(async doc => {
         const data = doc.data();
-        const novoStatus = await verificarEAtualizarSessao(doc.id, data);
-        return { sessaoId: doc.id, ...data, status: novoStatus };
+        const status = await verificarEAtualizarSessao(doc.id, data);
+        return { sessaoId: doc.id, ...data, status };
       }));
       return reply.send(mentorias);
     } catch (error) {
@@ -249,48 +192,21 @@ const descricao = `Sessão de mentoria cancelada. Motivo: ${motivo || 'não info
     }
   });
 
-  // Rota para buscar uma mentoria específica (com atualização automática)
-  app.get('/mentoria/:id', async (req, reply) => {
-    const { id } = req.params as { id: string };
-    try {
-      const doc = await db.collection('sessaoMentoria').doc(id).get();
-      if (!doc.exists) {
-        return reply.status(404).send({ message: 'Mentoria não encontrada.' });
-      }
-      const data = doc.data();
-      const novoStatus = await verificarEAtualizarSessao(doc.id, data);
-      return reply.send({ sessaoId: doc.id, ...data, status: novoStatus });
-    } catch (error) {
-      console.error(error);
-      return reply.status(500).send({ message: 'Erro ao buscar mentoria.' });
-    }
-  });
-
-  // Rota para busca filtrada de sessões (com atualização automática de status)
+  // Listar por filtro
   app.get('/mentoria/sessoes', async (req, reply) => {
-    const { status, mentorId, usuarioId } = req.query as {
-      status?: string;
-      mentorId?: string;
-      usuarioId?: string;
-    };
-
+    const { status, mentorId, usuarioId } = req.query as any;
     try {
-      let query: FirebaseFirestore.Query = db.collection('sessaoMentoria');
+      let query: any = db.collection('sessaoMentoria');
       if (status) query = query.where('status', '==', status);
       if (mentorId) query = query.where('mentorId', '==', mentorId);
       if (usuarioId) query = query.where('usuarioId', '==', usuarioId);
-
       const snapshot = await query.get();
-      if (snapshot.empty) {
-        return reply.send({ sessoes: [] });
-      }
-
-      const sessoes = await Promise.all(snapshot.docs.map(async (doc) => {
+      const sessoes = [];
+      for (const doc of snapshot.docs) {
         const data = doc.data();
-        const novoStatus = await verificarEAtualizarSessao(doc.id, data);
-        return { sessaoId: doc.id, ...data, status: novoStatus };
-      }));
-
+        const newStatus = await verificarEAtualizarSessao(doc.id, data);
+        sessoes.push({ sessaoId: doc.id, ...data, status: newStatus });
+      }
       return reply.send({ sessoes });
     } catch (error) {
       console.error(error);
@@ -298,58 +214,37 @@ const descricao = `Sessão de mentoria cancelada. Motivo: ${motivo || 'não info
     }
   });
 
-  // Rota para buscar as mentorias de um usuário específico
+  // Minhas sessões
   app.get('/mentoria/minhas-sessoes', async (req: FastifyRequest<{ Querystring: MinhasSessoesQuery }>, reply) => {
     const usuarioId = (req as any).user?.id || req.query.usuarioId;
-    if (!usuarioId) {
-      return reply.status(400).send({ message: 'Usuário não informado.' });
-    }
-  
+    if (!usuarioId) return reply.status(400).send({ message: 'Usuário não informado.' });
     try {
-      const snapshot = await db.collection('sessaoMentoria')
-        .where('usuarioId', '==', usuarioId)
-        .get();
-  
-      if (snapshot.empty) {
-        return reply.send({ sessoes: [] });
-      }
-  
-      const sessoes = await Promise.all(snapshot.docs.map(async (doc) => {
+      const snapshot = await db.collection('sessaoMentoria').where('usuarioId', '==', usuarioId).get();
+      const sessoes = [];
+      for (const doc of snapshot.docs) {
         const data = doc.data();
-        const novoStatus = await verificarEAtualizarSessao(doc.id, data);
-        return { sessaoId: doc.id, ...data, status: novoStatus };
-      }));
-  
+        const newStatus = await verificarEAtualizarSessao(doc.id, data);
+        sessoes.push({ sessaoId: doc.id, ...data, status: newStatus });
+      }
       return reply.send({ sessoes });
     } catch (error) {
       console.error(error);
-      return reply.status(500).send({ message: 'Erro ao buscar as mentorias do usuário.' });
+      return reply.status(500).send({ message: 'Erro ao buscar sessões do usuário.' });
     }
   });
-  
-  // Rota para avaliar sessão
+
+  // Avaliar sessão
   app.post('/mentoria/:id/avaliar', async (req: FastifyRequest<{ Body: AvaliarMentoriaBody }>, reply: FastifyReply) => {
     const { id } = req.params as { id: string };
     const { nota, comentario, avaliadorId } = req.body;
-    if (nota < 1 || nota > 5) {
-      return reply.status(400).send({ message: 'A nota deve estar entre 1 e 5.' });
-    }
+    if (nota < 1 || nota > 5) return reply.status(400).send({ message: 'A nota deve estar entre 1 e 5.' });
     try {
-      // Atualiza a sessão com a avaliação
       await db.collection('sessaoMentoria').doc(id).update({
-        avaliacao: {
-          nota,
-          comentario: comentario || '',
-          avaliadorId,
-          data: new Date(),
-        },
+        avaliacao: { nota, comentario: comentario || '', avaliadorId, data: new Date() }
       });
-
-      // Registra atividade de avaliação (fire-and-forget)
- const descricao = `Sessão de mentoria avaliada com nota ${nota}.`;
-      const acao = "Avaliar Mentoria";
-      registrarAtividade(avaliadorId, descricao, acao);
-
+      const descricao = `Sessão de mentoria avaliada com nota ${nota}.`;
+      registrarAtividade(avaliadorId, descricao, 'mentoria.finalizar');
+      await dispararEvento('mentoria.finalizar', avaliadorId, { mentorNome: avaliadorId });
       return reply.send({ message: 'Avaliação registrada com sucesso.' });
     } catch (error) {
       console.error(error);
@@ -357,5 +252,3 @@ const descricao = `Sessão de mentoria cancelada. Motivo: ${motivo || 'não info
     }
   });
 }
-
-

@@ -18,9 +18,9 @@ const firebase_admin_1 = __importDefault(require("firebase-admin"));
 const notificationsservice_1 = require("./notificationsservice");
 function suggestsRoutes(app) {
     return __awaiter(this, void 0, void 0, function* () {
-        // Enviar sugestão: notifica admins
+        // Enviar sugestão: usa dispararEvento para notificar autor e admins
         app.post('/sugestoes', (req, reply) => __awaiter(this, void 0, void 0, function* () {
-            const { usuarioId, categoria, descricao, status } = req.body;
+            const { usuarioId, categoria, descricao } = req.body;
             if (!usuarioId || !categoria || !descricao) {
                 return reply.status(400).send({ message: 'Dados inválidos' });
             }
@@ -29,19 +29,15 @@ function suggestsRoutes(app) {
                     usuarioId,
                     categoria,
                     descricao,
-                    status: status || 'pendente',
+                    status: 'pendente',
                     data: firebase_admin_1.default.firestore.Timestamp.now(),
                 };
                 const docRef = yield firebaseConfig_1.default.collection('sugestoes').add(nova);
-                // registrar atividade e notificação para o autor
-                const descAtiv = `Sugestão enviada para categoria \"${categoria}\".`;
-                const acao = 'Enviar Sugestão';
-                yield (0, notificationsservice_1.registrarAtividade)(usuarioId, descAtiv, acao);
-                yield (0, notificationsservice_1.distribuirNotificacao)([usuarioId], acao, descAtiv);
-                // notificar todos os admins
-                const admins = yield (0, notificationsservice_1.buscarUsuariosPorRole)('admin');
-                const msgAdmin = `Nova sugestão na categoria \"${categoria}\" de ${usuarioId}.`;
-                yield (0, notificationsservice_1.distribuirNotificacao)(admins, 'Nova Sugestão', msgAdmin);
+                // Registrar atividade e disparar evento
+                const acao = 'sugestao.criar';
+                const descricaoNot = `Você enviou uma sugestão para a categoria "${categoria}".`;
+                yield (0, notificationsservice_1.registrarAtividade)(usuarioId, descricaoNot, acao);
+                yield (0, notificationsservice_1.dispararEvento)(acao, usuarioId, { categoria, descricao, sugestaoId: docRef.id });
                 return reply.status(201).send({ message: 'Sugestão recebida', id: docRef.id });
             }
             catch (error) {
@@ -49,7 +45,7 @@ function suggestsRoutes(app) {
                 return reply.status(500).send({ message: 'Erro no servidor' });
             }
         }));
-        // Listar sugestões (sem notificações)
+        // Listar sugestões
         app.get('/sugestoes', (_, reply) => __awaiter(this, void 0, void 0, function* () {
             try {
                 const snapshot = yield firebaseConfig_1.default.collection('sugestoes').get();
@@ -61,10 +57,10 @@ function suggestsRoutes(app) {
                 return reply.status(500).send({ message: 'Erro ao buscar sugestões' });
             }
         }));
-        // Atualizar status da sugestão: notifica autor
+        // Atualizar status da sugestão: usa dispararEvento para notificar autor e admins
         app.put('/sugestoes/:id', (req, reply) => __awaiter(this, void 0, void 0, function* () {
             const { id } = req.params;
-            const { status, usuarioId: bodyUser } = req.body;
+            const { status } = req.body;
             if (!status) {
                 return reply.status(400).send({ message: 'Status não informado' });
             }
@@ -76,11 +72,11 @@ function suggestsRoutes(app) {
                 }
                 const orig = snap.data();
                 yield ref.update({ status });
-                const autor = orig.usuarioId || bodyUser || 'sistema';
-                const descAtiv = `Status da sugestão atualizado para \"${status}\".`;
-                const acao = 'Atualizar Sugestão';
-                yield (0, notificationsservice_1.registrarAtividade)(autor, descAtiv, acao);
-                yield (0, notificationsservice_1.distribuirNotificacao)([autor], acao, descAtiv);
+                const autor = orig.usuarioId;
+                const acao = 'sugestao.atualizar';
+                const descricaoNot = `Seu pedido de sugestão foi ${status}.`;
+                yield (0, notificationsservice_1.registrarAtividade)(autor, descricaoNot, acao);
+                yield (0, notificationsservice_1.dispararEvento)(acao, autor, { status, sugestaoId: id });
                 return reply.status(200).send({ message: 'Status da sugestão atualizado' });
             }
             catch (error) {
