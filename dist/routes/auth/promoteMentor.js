@@ -28,6 +28,7 @@ exports.registrarAtividade = registrarAtividade;
 exports.default = promoteMentorRoutes;
 const firebaseConfig_1 = __importDefault(require("../../firebaseConfig"));
 const firestore_1 = require("firebase-admin/firestore");
+const notificationsservice_1 = require("../notificationsservice");
 // Função auxiliar para registrar atividade
 function registrarAtividade(userId, descricao, acao) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -93,6 +94,8 @@ function promoteMentorRoutes(app) {
                 const descricao = `${nomeParaRegistro} foi promovido a MENTOR.`;
                 const acao = "Promover a Mentor";
                 yield registrarAtividade(userDoc.id, descricao, acao);
+                // ▪️ Notifica o usuário que pediu promoção de que foi aprovado
+                yield (0, notificationsservice_1.dispararEvento)('promocao.aprovada', userDoc.id, { nome: nomeParaRegistro, novoTipo: 'MENTOR' });
                 return reply.status(200).send({ message: "Usuário promovido a mentor com sucesso!" });
             }
             catch (error) {
@@ -139,6 +142,8 @@ function promoteMentorRoutes(app) {
                 const descricao = `${nomeParaRegistro} foi promovido a ADMIN.`;
                 const acao = "Promover a Admin";
                 yield registrarAtividade(userDoc.id, descricao, acao);
+                // ▪️ Notifica o usuário que pediu promoção de que foi aprovado
+                yield (0, notificationsservice_1.dispararEvento)('promocao.aprovada', userDoc.id, { nome: nomeParaRegistro, novoTipo: 'ADMIN' });
                 return reply.status(200).send({ message: "Usuário promovido a ADMIN com sucesso!" });
             }
             catch (error) {
@@ -226,6 +231,8 @@ function promoteMentorRoutes(app) {
                 const descricao = `Solicitação de promoção enviada por ${nomeParaRegistro} para o tipo ${novoTipo}.`;
                 const acao = "Solicitar Promoção";
                 yield registrarAtividade(email, descricao, acao);
+                // ▪️ Notifica todos os ADMINS sobre a nova solicitação
+                yield (0, notificationsservice_1.dispararEvento)('promocao.solicitar', email, { email, tipoSolicitado: novoTipo });
                 console.log("Solicitação de promoção adicionada com sucesso:", solicitacao.id);
                 return reply.status(200).send({ message: "Solicitação enviada com sucesso!" });
             }
@@ -276,6 +283,8 @@ function promoteMentorRoutes(app) {
                 const descricao = `Solicitação de promoção para ${nomeParaRegistro} foi rejeitada.`;
                 const acao = "Rejeitar Solicitação";
                 yield registrarAtividade(email, descricao, acao);
+                // ▪️ Notifica o usuário que pediu promoção de que foi rejeitada
+                yield (0, notificationsservice_1.dispararEvento)('promocao.rejeitada', email, { nome: nomeParaRegistro });
                 return reply.status(200).send({ message: "Solicitação rejeitada com sucesso." });
             }
             catch (error) {

@@ -175,16 +175,32 @@ const MentoresScreen: React.FC = () => {
           const mentorImage = item.imagem || item.profileImage;
           return (
             <TouchableOpacity style={[styles.card , { backgroundColor: theme.backgroundColor }]}onPress={() => abrirDetalhesMentor(item)}>
-              <Image
-                source={{ 
-                  uri: mentorImage 
-                    ? (mentorImage.startsWith('data:') 
-                        ? mentorImage 
-                        : `data:image/jpeg;base64,${mentorImage}`) 
-                    : 'https://via.placeholder.com/150'
-                }}
-                style={styles.imagem}
-              />
+        { mentorImage ? (
+  <TouchableOpacity
+    onPress={() => abrirDetalhesMentor(item)}
+    style={styles.imagem}
+    activeOpacity={0.7}
+  >
+    <Image
+      source={
+        mentorImage.startsWith('data:')
+          ? { uri: mentorImage }
+          : { uri: `data:image/jpeg;base64,${mentorImage}` }
+      }
+      style={styles.imagem}
+      resizeMode="cover"
+      onError={() => console.warn('Erro carregando imagem do mentor')}
+    />
+  </TouchableOpacity>
+) : (
+  <Ionicons
+    name="person-circle"
+    size={60}
+    color={theme.textColor}
+    style={{ marginRight: 15 }}
+  />
+) }
+
               <View style={styles.infoContainer}>
                 <Text style={[styles.nome, { color: theme.textColor }]}>{item.nome}</Text>
                 <Text style={[styles.bio, { color: theme.textColor }]}>{item.bio}</Text>
@@ -209,16 +225,26 @@ const MentoresScreen: React.FC = () => {
           </TouchableOpacity>
           {mentorSelecionado && (
             <>
-              <Image
-                source={{ 
-                  uri: (mentorSelecionado.imagem || mentorSelecionado.profileImage)
-                    ? ((mentorSelecionado.imagem || mentorSelecionado.profileImage)!.startsWith('data:')
-                        ? (mentorSelecionado.imagem || mentorSelecionado.profileImage)
-                        : `data:image/jpeg;base64,${mentorSelecionado.imagem || mentorSelecionado.profileImage}`)
-                    : 'https://via.placeholder.com/150'
-                }}
-                style={styles.imagemGrande}
-              />
+            { mentorSelecionado?.imagem || mentorSelecionado?.profileImage ? (
+  <Image
+    source={
+      (mentorSelecionado.imagem || mentorSelecionado.profileImage)!.startsWith('data:')
+        ? { uri: (mentorSelecionado.imagem || mentorSelecionado.profileImage)! }
+        : { uri: `data:image/jpeg;base64,${mentorSelecionado.imagem || mentorSelecionado.profileImage}` }
+    }
+    style={styles.imagemGrande}
+    resizeMode="cover"
+    onError={() => console.warn('Erro carregando imagem grande')}
+  />
+) : (
+  <Ionicons
+    name="person-circle"
+    size={150}
+    color={theme.textColor}
+    style={{ marginBottom: 15 }}
+  />
+) }
+
               <Text style={[styles.modalNome, { color: theme.textColor }]}>{mentorSelecionado.nome}</Text>
               <Text style={[styles.modalBio, { color: theme.textColor }]}>{mentorSelecionado.bio}</Text>
               <Text style={[styles.label, { color: theme.textColor }]}>Status:</Text>

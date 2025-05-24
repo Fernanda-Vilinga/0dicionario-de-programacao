@@ -97,7 +97,8 @@ const regras = [
         evento: 'mentoria.aceitar',
         remetenteRole: 'MENTOR',
         destinatariosRoles: ['USER', 'MENTOR', 'ADMIN'],
-        template: ({ mentorNome }) => `✅ Sua mentoria foi aceita por ${mentorNome}.`,
+        // template: ({ mentorNome }: any) => `✅ Sua mentoria foi aceita por ${mentorNome}.`,
+        template: ({ mentorNome }) => `✅ Sua mentoria foi aceita.`,
     },
     {
         evento: 'mentoria.rejeitar',
@@ -122,6 +123,25 @@ const regras = [
         remetenteRole: 'SISTEMA',
         destinatariosRoles: ['USER', 'MENTOR', 'ADMIN'],
         template: ({ mentorNome }) => `⏰ Sua mentoria com ${mentorNome} expirou.`,
+    },
+    // → Suas novas regras de “promoção”:
+    {
+        evento: 'promocao.solicitar',
+        remetenteRole: 'USER',
+        destinatariosRoles: ['ADMIN'],
+        template: ({ email, tipoSolicitado }) => `💼 Novo pedido de promoção: ${email} → ${tipoSolicitado}.`,
+    },
+    {
+        evento: 'promocao.aprovada',
+        remetenteRole: 'ADMIN',
+        destinatariosRoles: ['USER'],
+        template: ({ nome, novoTipo }) => `✅ Sua promoção para ${novoTipo} foi aprovada, ${nome}!`,
+    },
+    {
+        evento: 'promocao.rejeitada',
+        remetenteRole: 'ADMIN',
+        destinatariosRoles: ['USER'],
+        template: ({ nome }) => `❌ Sua solicitação de promoção foi rejeitada, ${nome}.`,
     },
 ];
 /**

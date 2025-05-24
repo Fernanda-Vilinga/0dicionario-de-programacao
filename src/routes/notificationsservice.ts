@@ -72,53 +72,80 @@ const regras: RegraNotificacao[] = [
       return `🔄 O pedido de sugestão está "${status}".`;
     },
   },
+
+  
   // Mentoria
   {
     evento: 'mentoria.agendar',
     remetenteRole: 'USER',
     destinatariosRoles: ['MENTOR', 'ADMIN'],
     template: ({ usuarioNome, data, horario }: any) =>
-      `🗓 Sua mentoria com ${usuarioNome} está agendada para ${data} às ${horario}.`,
+      `🗓 Uma nova mentoria foi agendada! Confira seu dashboard para detalhes.`,
   },
+
   {
     evento: 'mentoria.iniciar',
     remetenteRole: 'SISTEMA',
     destinatariosRoles: ['USER', 'MENTOR'],
-    template: ({ mentorNome }: any) => `🔔 Sua mentoria com ${mentorNome} entrou em curso! Entre no chat.`,
+    template: ({ mentorNome }: any) => `🔔 Sua mentoria começou! Entre no chat agora.`,
   },
   {
     evento: 'mentoria.aceitar',
     remetenteRole: 'MENTOR',
     destinatariosRoles: ['USER', 'MENTOR', 'ADMIN'],
-    template: ({ mentorNome }: any) => `✅ Sua mentoria foi aceita por ${mentorNome}.`,
+     template: ({ mentorNome }: any) => `✅ Sua solicitação de mentoria foi aceita!`,
   },
   {
     evento: 'mentoria.rejeitar',
     remetenteRole: 'MENTOR',
     destinatariosRoles: ['USER', 'MENTOR', 'ADMIN'],
     template: ({ mentorNome, motivo }: any) =>
-      `❌ A sessão com ${mentorNome} foi rejeitada. Motivo: ${motivo}.`,
+      `❌ Sua solicitação de mentoria foi rejeitada.`,
   },
   {
     evento: 'mentoria.cancelar',
     remetenteRole: 'USER',
     destinatariosRoles: ['USER', 'MENTOR', 'ADMIN'],
     template: ({ usuarioNome, motivo }: any) =>
-      `❌ A sessão com ${usuarioNome} foi cancelada. Motivo: ${motivo}.`,
+      `❌ Uma mentoria foi cancelada. `,
   },
   {
     evento: 'mentoria.finalizar',
     remetenteRole: 'SISTEMA',
     destinatariosRoles: ['USER', 'MENTOR', 'ADMIN'],
     template: ({ mentorNome }: any) =>
-      `✅ Sua mentoria com ${mentorNome} foi finalizada com sucesso.`,
+      `✅ Mentoria finalizada com sucesso.`,
   },
   {
     evento: 'mentoria.expirada',
     remetenteRole: 'SISTEMA',
     destinatariosRoles: ['USER', 'MENTOR', 'ADMIN'],
     template: ({ mentorNome }: any) =>
-      `⏰ Sua mentoria com ${mentorNome} expirou.`,
+      `⏰ A mentoria expirou. Agende outra quando quiser.`,
+  },
+
+
+  // → Suas novas regras de “promoção”:
+  {
+    evento: 'promocao.solicitar',
+    remetenteRole: 'USER',
+    destinatariosRoles: ['ADMIN'],
+    template: ({ email, tipoSolicitado }: any) =>
+      `💼 Novo pedido de promoção: ${email} → ${tipoSolicitado}.`,
+  },
+  {
+    evento: 'promocao.aprovada',
+    remetenteRole: 'ADMIN',
+    destinatariosRoles: ['USER'],
+    template: ({ nome, novoTipo }: any) =>
+      `✅ Sua promoção para ${novoTipo} foi aprovada, ${nome}!`,
+  },
+  {
+    evento: 'promocao.rejeitada',
+    remetenteRole: 'ADMIN',
+    destinatariosRoles: ['USER'],
+    template: ({ nome }: any) =>
+      `❌ Sua solicitação de promoção foi rejeitada, ${nome}.`,
   },
 ];
 

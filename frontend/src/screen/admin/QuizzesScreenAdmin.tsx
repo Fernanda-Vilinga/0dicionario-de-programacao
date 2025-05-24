@@ -176,7 +176,7 @@ const QuizzesScreen: React.FC = () => {
         />
       )}
 
-      <TouchableOpacity style={styles.addButton} onPress={() => openModal('add')}>
+      <TouchableOpacity style={styles.salvarButton2} onPress={() => openModal('add')}>
         <Text style={styles.buttonText}>Adicionar Quiz</Text>
       </TouchableOpacity>
 
@@ -228,7 +228,7 @@ const QuizzesScreen: React.FC = () => {
               ))}
             </Picker>
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.button} onPress={handleSaveQuiz}>
+              <TouchableOpacity style={styles.salvarButton} onPress={handleSaveQuiz}>
                 <Text style={styles.buttonText}>Salvar</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.cancelButton} onPress={closeModal}>
@@ -281,6 +281,10 @@ const getStyles = (theme: any) => StyleSheet.create({
   label: { color: theme.textColor, fontWeight: 'bold', marginBottom: 4 },
   picker: { borderWidth: 1, borderColor: theme.borderColor, borderRadius: 5, marginBottom: 10 },
   modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+  salvarButton: { backgroundColor: theme.buttonBackground, padding: 10, borderRadius: 5, flex: 1,
+     marginRight: 8, alignItems: 'center' },
+       salvarButton2: { backgroundColor: theme.buttonBackground, padding: 22, borderRadius: 5, flex: 1,
+     marginRight: 4, alignItems: 'center' },
   cancelButton: { backgroundColor: 'gray', padding: 10, borderRadius: 5, flex: 1, marginRight: 8, alignItems: 'center' },
   confirmBox: { width: MODAL_WIDTH * 0.8, backgroundColor: theme.backgroundColor, padding: 20, borderRadius: 10, alignItems: 'center' },
   confirmText: { color: theme.textColor, fontSize: 16, marginBottom: 12 },

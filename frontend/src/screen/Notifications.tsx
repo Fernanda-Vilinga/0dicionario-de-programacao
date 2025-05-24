@@ -12,6 +12,8 @@ import {
   Image,
   ScrollView,
   Alert,
+  Platform,
+  useWindowDimensions,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -40,7 +42,7 @@ const FILTER_TABS: { key: FilterType; label: string }[] = [
 
 const NotificationScreen: React.FC = () => {
   const { theme } = useContext(ThemeContext);
-  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [notifications, setNotifications] = useState<NotificationLoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -49,15 +51,20 @@ const NotificationScreen: React.FC = () => {
   const [profileData, setProfileData] = useState<UserProfile | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  // 1️⃣ Ler apenas o flag salvo em SettingsScreen
+  // Altura da viewport no web
+  const { height: windowHeight } = useWindowDimensions();
+  const listMaxHeight = windowHeight * 0.7;
+  const modalScrollMaxHeight = windowHeight * 0.6;
+
+  // carregar flag
   useEffect(() => {
     (async () => {
       const stored = await AsyncStorage.getItem("notificationsEnabled");
-      setNotificationsEnabled(stored === null ? true : stored === "true");
+      setNotificationsEnabled(stored == null ? true : stored === "true");
     })();
   }, []);
 
-  // 2️⃣ Função que limpa ou busca notificações
+  // buscar notificações
   const loadNotifications = useCallback(async () => {
     setLoading(true);
     if (!notificationsEnabled) {
@@ -75,26 +82,22 @@ const NotificationScreen: React.FC = () => {
     }
   }, [notificationsEnabled]);
 
-  // 3️⃣ Sempre que o flag mudar, recarrega (ou limpa)
   useEffect(() => {
     loadNotifications();
   }, [notificationsEnabled, loadNotifications]);
 
-  // 4️⃣ Pull-to-refresh
   const onRefresh = async () => {
     setRefreshing(true);
     await loadNotifications();
     setRefreshing(false);
   };
 
-  // 5️⃣ Volta ao foco só recarrega se habilitado
   useFocusEffect(
     useCallback(() => {
       if (notificationsEnabled) loadNotifications();
     }, [notificationsEnabled, loadNotifications])
   );
 
-  // 6️⃣ Marcar individual como lido e abrir modal de detalhe
   const handlePress = async (item: NotificationLoc) => {
     if (!item.read) {
       await markNotificationAsRead(item.id);
@@ -119,7 +122,6 @@ const NotificationScreen: React.FC = () => {
     setSelected(item);
   };
 
-  // 7️⃣ Marcar todas como lidas
   const handleMarkAll = async () => {
     setLoading(true);
     const ok = await markAllNotificationsAsRead();
@@ -127,7 +129,7 @@ const NotificationScreen: React.FC = () => {
     await loadNotifications();
   };
 
-  // 8️⃣ Agrupar por data
+  // agrupar por data
   const filtered = notifications.filter(n =>
     filter === "all" ? true : filter === "unread" ? !n.read : n.read
   );
@@ -146,7 +148,6 @@ const NotificationScreen: React.FC = () => {
     return Object.entries(groups).map(([title, data]) => ({ title, data }));
   }, [filtered]);
 
-  // 9️⃣ Spinner inicial
   if (loading) {
     return (
       <ActivityIndicator
@@ -157,19 +158,19 @@ const NotificationScreen: React.FC = () => {
     );
   }
 
-  // 🔟 Se desativado, retorna só header + mensagem
   if (!notificationsEnabled) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
+      <View
+        style={[styles.container, { backgroundColor: theme.backgroundColor }]}
+      >
         <Header screenName="Notificações" />
-        <Text style={[styles.disabledText, { color: theme.textColorSecondary }]}>
-          Notificações desativadas. Ative em Definições.
+        <Text style={[styles.disabledText, { color: theme.textColor }]}>
+          Notificações desativadas
         </Text>
       </View>
     );
   }
 
-  // 1️⃣1️⃣ Notificações habilitadas: renderiza filtros, lista e modal
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
       <Header screenName="Notificações" />
@@ -185,7 +186,9 @@ const NotificationScreen: React.FC = () => {
           const count =
             tab.key === "all"
               ? notifications.length
-              : notifications.filter(n => (tab.key === "unread" ? !n.read : n.read)).length;
+              : notifications.filter(n =>
+                  tab.key === "unread" ? !n.read : n.read
+                ).length;
           const active = filter === tab.key;
           return (
             <TouchableOpacity
@@ -214,7 +217,9 @@ const NotificationScreen: React.FC = () => {
             style={[styles.item, { backgroundColor: theme.cardBackground }]}
             onPress={() => handlePress(item)}
           >
-            <Text style={[styles.title, { color: theme.textColor }]}>{item.type}</Text>
+            <Text style={[styles.title, { color: theme.textColor }]}>
+              {item.type}
+            </Text>
             <Text
               style={[styles.body, { color: theme.textColorSecondary }]}
               numberOfLines={2}
@@ -227,10 +232,26 @@ const NotificationScreen: React.FC = () => {
           </TouchableOpacity>
         )}
         renderSectionHeader={({ section }) => (
-          <Text style={[styles.header, { color: theme.textColor }]}>{section.title}</Text>
+          <Text style={[styles.header, { color: theme.textColor }]}>
+            {section.title}
+          </Text>
         )}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: 10,
+          paddingBottom: 20,
+          minHeight: 300,
+        }}
+        // @ts-ignore: overflowY é válido em web, mas não está no ViewStyle do RN
+        style={
+          Platform.OS === "web"
+            ? { flex: 1, maxHeight: listMaxHeight, overflowY: "auto" } as any
+            : { flex: 1 }
+        }
+        showsVerticalScrollIndicator
         ListEmptyComponent={() => (
           <Text style={styles.emptyText}>Nenhuma notificação</Text>
         )}
@@ -247,7 +268,15 @@ const NotificationScreen: React.FC = () => {
             {detailLoading ? (
               <ActivityIndicator size="large" color={theme.primaryColor} />
             ) : (
-              <ScrollView contentContainerStyle={styles.detailContainer}>
+              <ScrollView
+                // @ts-ignore: overflowY é válido em web, mas não está no ViewStyle do RN
+                style={
+                  Platform.OS === "web"
+                    ? ({ maxHeight: modalScrollMaxHeight, overflowY: "auto" } as any)
+                    : {}
+                }
+                contentContainerStyle={styles.detailContainer}
+              >
                 {selected?.type === "Atualizar perfil" && profileData ? (
                   <>
                     <Image
@@ -258,18 +287,12 @@ const NotificationScreen: React.FC = () => {
                       {profileData.nome}
                     </Text>
                     <Text
-                      style={[
-                        styles.detailBio,
-                        { color: theme.textColorSecondary },
-                      ]}
+                      style={[styles.detailBio, { color: theme.textColorSecondary }]}
                     >
                       {profileData.bio}
                     </Text>
                     <Text
-                      style={[
-                        styles.detailTimestamp,
-                        { color: theme.textColorSecondary },
-                      ]}
+                      style={[styles.detailTimestamp, { color: theme.textColorSecondary }]}
                     >
                       Atualizado em:{" "}
                       {new Date(selected.createdAt).toLocaleString("pt-BR")}
@@ -281,10 +304,7 @@ const NotificationScreen: React.FC = () => {
                       {selected?.message}
                     </Text>
                     <Text
-                      style={[
-                        styles.detailTimestamp,
-                        { color: theme.textColorSecondary },
-                      ]}
+                      style={[styles.detailTimestamp, { color: theme.textColorSecondary }]}
                     >
                       {selected?.createdAt
                         ? new Date(selected.createdAt).toLocaleString("pt-BR")
@@ -337,10 +357,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
-  list: {
-    paddingHorizontal: 10,
-    paddingBottom: 20,
-  },
   emptyText: {
     color: "#888",
     textAlign: "center",
@@ -348,43 +364,67 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
   },
   item: {
-    padding: 15,
-    marginVertical: 6,
-    borderRadius: 10,
+    padding: 12,
+    marginVertical: 5,
+    borderRadius: 8,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  title: { fontSize: 16, fontWeight: "bold", marginBottom: 4 },
-  body: { fontSize: 14, marginBottom: 4 },
-  date: { fontSize: 12, opacity: 0.7, textAlign: "right" },
-  header: { fontSize: 14, fontWeight: "bold", marginTop: 15, marginBottom: 5 },
+  title: { fontWeight: "700", fontSize: 14, marginBottom: 4 },
+  body: { fontSize: 13 },
+  date: { fontSize: 11, marginTop: 6 },
+  header: {
+    fontWeight: "bold",
+    fontSize: 15,
+    paddingVertical: 6,
+    paddingLeft: 6,
+  },
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
-    alignItems: "center",
-  },
-  modal: {
-    width: "85%",
-    maxHeight: "80%",
-    borderRadius: 12,
     padding: 20,
   },
-  detailContainer: { alignItems: "center" },
+  modal: {
+    borderRadius: 10,
+    padding: 20,
+    maxHeight: "80%",
+  },
+  detailContainer: {
+    alignItems: "center",
+  },
   profileImage: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  detailName: { fontSize: 18, fontWeight: "bold" },
-  detailBio: { fontSize: 14, marginVertical: 8, textAlign: "center" },
-  detailMessage: { fontSize: 16, marginBottom: 12 },
-  detailTimestamp: { fontSize: 12, opacity: 0.7 },
-  closeBtn: { marginTop: 10, alignSelf: "stretch" },
+  detailName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 5,
+  },
+  detailBio: {
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  detailMessage: {
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  detailTimestamp: {
+    fontSize: 12,
+    marginTop: 10,
+    textAlign: "center",
+  },
+  closeBtn: {
+    marginTop: 20,
+    width: "100%",
+  },
 });
 
 export default NotificationScreen;

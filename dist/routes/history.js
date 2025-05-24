@@ -95,7 +95,7 @@ function dashboardRoutes(app) {
                     },
                     {
                         title: 'Acessos Recentes',
-                        value: recentUsersList.length ? `${recentUsersList.length} acessos` : 'N/A',
+                        value: `${recentUsersList.length} acessos`,
                         icon: 'visibility',
                         color: '#FF9800',
                     },

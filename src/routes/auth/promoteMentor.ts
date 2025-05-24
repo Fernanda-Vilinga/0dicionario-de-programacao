@@ -1,6 +1,7 @@
 import { FastifyInstance , FastifyReply, FastifyRequest } from "fastify";
 import db from "../../firebaseConfig";
 import { FieldValue } from 'firebase-admin/firestore';
+import {  dispararEvento } from '../notificationsservice';
 // Função auxiliar para registrar atividade
 export async function registrarAtividade(userId: string, descricao: string, acao: string) {
   try {
@@ -72,7 +73,12 @@ export default async function promoteMentorRoutes(app: FastifyInstance) {
       const descricao = `${nomeParaRegistro} foi promovido a MENTOR.`;
       const acao = "Promover a Mentor";
       await registrarAtividade(userDoc.id, descricao, acao);
-
+      // ▪️ Notifica o usuário que pediu promoção de que foi aprovado
+     await dispararEvento(
+       'promocao.aprovada',
+       userDoc.id,
+       { nome: nomeParaRegistro, novoTipo: 'MENTOR' }
+     );
       return reply.status(200).send({ message: "Usuário promovido a mentor com sucesso!" });
     } catch (error) {
       console.error(error);
@@ -129,7 +135,12 @@ export default async function promoteMentorRoutes(app: FastifyInstance) {
       const descricao = `${nomeParaRegistro} foi promovido a ADMIN.`;
       const acao = "Promover a Admin";
       await registrarAtividade(userDoc.id, descricao, acao);
-
+      // ▪️ Notifica o usuário que pediu promoção de que foi aprovado
+     await dispararEvento(
+       'promocao.aprovada',
+       userDoc.id,
+       { nome: nomeParaRegistro, novoTipo: 'ADMIN' }
+     );
       return reply.status(200).send({ message: "Usuário promovido a ADMIN com sucesso!" });
     } catch (error) {
       console.error(error);
@@ -232,7 +243,12 @@ export default async function promoteMentorRoutes(app: FastifyInstance) {
       const descricao = `Solicitação de promoção enviada por ${nomeParaRegistro} para o tipo ${novoTipo}.`;
       const acao = "Solicitar Promoção";
       await registrarAtividade(email, descricao, acao);
-
+      // ▪️ Notifica todos os ADMINS sobre a nova solicitação
+     await dispararEvento(
+       'promocao.solicitar',
+      email,
+       { email, tipoSolicitado: novoTipo }
+     );
       console.log("Solicitação de promoção adicionada com sucesso:", solicitacao.id);
       return reply.status(200).send({ message: "Solicitação enviada com sucesso!" });
     } catch (error) {
@@ -289,7 +305,12 @@ export default async function promoteMentorRoutes(app: FastifyInstance) {
       const descricao = `Solicitação de promoção para ${nomeParaRegistro} foi rejeitada.`;
       const acao = "Rejeitar Solicitação";
       await registrarAtividade(email, descricao, acao);
-
+       // ▪️ Notifica o usuário que pediu promoção de que foi rejeitada
+     await dispararEvento(
+       'promocao.rejeitada',
+       email,
+       { nome: nomeParaRegistro }
+     );
       return reply.status(200).send({ message: "Solicitação rejeitada com sucesso." });
     } catch (error) {
       console.error("Erro ao rejeitar solicitação:", error);

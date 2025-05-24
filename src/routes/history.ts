@@ -85,7 +85,7 @@ export default async function dashboardRoutes(app: FastifyInstance) {
         },
         {
           title: 'Acessos Recentes',
-          value: recentUsersList.length ? `${recentUsersList.length} acessos` : 'N/A',
+          value: `${recentUsersList.length} acessos`,
           icon: 'visibility',
           color: '#FF9800',
         },

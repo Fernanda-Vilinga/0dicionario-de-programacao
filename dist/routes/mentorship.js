@@ -65,19 +65,42 @@ function verificarEAtualizarSessao(docId, sessaoData) {
 function mentoriaRoutes(app) {
     return __awaiter(this, void 0, void 0, function* () {
         // Agendar sessão
+        // Agendar sessão (com checagem de conflito para mentor e para usuário)
         app.post('/mentoria/agendar', (req, reply) => __awaiter(this, void 0, void 0, function* () {
             var _a;
             const usuarioId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || req.body.usuarioId;
             const { mentorId, data, horario, categoria } = req.body;
+            // 1) Validação de campos obrigatórios
             if (!usuarioId || !mentorId || !data || !horario || !categoria) {
                 return reply.status(400).send({ message: 'Preencha todos os campos obrigatórios.' });
             }
             try {
+                // 2) Monta os Date objects
                 const dataHoraInicio = criarDataHoraLocal(data, horario);
                 const dataHoraFim = new Date(dataHoraInicio.getTime() + 30 * 60000);
+                // 3) Deve ser futura
                 if (dataHoraInicio <= new Date()) {
-                    return reply.status(400).send({ message: 'A mentoria deve ser agendada para uma data futura.' });
+                    return reply
+                        .status(400)
+                        .send({ message: 'A mentoria deve ser agendada para uma data futura.' });
                 }
+                // 4) Checagem de conflito para o mentoreado (busca simples + filtro em memória)
+                const snapUser = yield firebaseConfig_1.default.collection('sessaoMentoria')
+                    .where('usuarioId', '==', usuarioId)
+                    .where('status', 'in', ['pendente', 'aceita', 'em_curso'])
+                    .get();
+                const conflitoUsuario = snapUser.docs.some(doc => {
+                    const s = doc.data();
+                    const inicioExist = converterTimestampParaDate(s.dataHoraInicio);
+                    const fimExist = converterTimestampParaDate(s.dataHoraFim);
+                    return inicioExist < dataHoraFim && fimExist > dataHoraInicio;
+                });
+                if (conflitoUsuario) {
+                    return reply.status(400).send({
+                        message: 'Você já tem outra sessão agendada nesse mesmo horário.'
+                    });
+                }
+                // 6) Cria a sessão no Firestore
                 const newSession = yield firebaseConfig_1.default.collection('sessaoMentoria').add({
                     usuarioId,
                     mentorId,
@@ -89,11 +112,17 @@ function mentoriaRoutes(app) {
                     dataHoraInicio,
                     dataHoraFim
                 });
+                // 7) Registro de atividade e notificação
                 const descricao = `Agendou uma sessão de mentoria para ${data} às ${horario}.`;
                 (0, notificationsservice_1.registrarAtividade)(usuarioId, descricao, 'mentoria.agendar');
-                // Notificação
-                yield (0, notificationsservice_1.dispararEvento)('mentoria.agendar', usuarioId, { usuarioNome: usuarioId, data, horario });
-                return reply.status(201).send({ message: 'Mentoria solicitada com sucesso.', id: newSession.id });
+                yield (0, notificationsservice_1.dispararEvento)('mentoria.agendar', usuarioId, {
+                    usuarioNome: usuarioId,
+                    data,
+                    horario
+                });
+                return reply
+                    .status(201)
+                    .send({ message: 'Mentoria solicitada com sucesso.', id: newSession.id });
             }
             catch (error) {
                 console.error(error);

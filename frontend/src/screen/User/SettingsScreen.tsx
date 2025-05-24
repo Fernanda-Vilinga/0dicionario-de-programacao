@@ -1,5 +1,3 @@
-// SettingsScreen.tsx
-
 import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
@@ -24,7 +22,6 @@ const SettingsScreen: React.FC = () => {
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
   const [userId, setUserId] = useState<string | null>(null);
 
-  // 1️⃣ Carrega userId e flag de notificações ao montar
   useEffect(() => {
     (async () => {
       try {
@@ -42,7 +39,6 @@ const SettingsScreen: React.FC = () => {
     })();
   }, []);
 
-  // 2️⃣ Alterna e persiste flag
   const toggleNotifications = async () => {
     try {
       const newValue = !notificationsEnabled;
@@ -53,7 +49,6 @@ const SettingsScreen: React.FC = () => {
     }
   };
 
-  // 3️⃣ Excluir conta
   const handleDeleteAccount = async () => {
     if (!userId) {
       Alert.alert('Erro', 'Usuário não encontrado.');
@@ -81,11 +76,13 @@ const SettingsScreen: React.FC = () => {
   };
 
   return (
-     <View>
-      <HeaderComum screenName="Definições" />
 
     <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
-      
+    <View style={styles.header}>
+           <HeaderComum screenName="Definições"  />
+      </View>
+   
+
       <Text style={[styles.title, { color: theme.textColor }]}>
         Configurações Gerais
       </Text>
@@ -108,7 +105,10 @@ const SettingsScreen: React.FC = () => {
       </View>
 
       <TouchableOpacity
-        style={[styles.button, { backgroundColor: '#2979FF', width: width * 0.8 }]}
+        style={[
+          styles.button,
+          { backgroundColor: theme.buttonBackground, width: width * 0.8 },
+        ]}
         onPress={() => {
           if (userId) {
             navigation.navigate('ResetPassword', {
@@ -126,12 +126,16 @@ const SettingsScreen: React.FC = () => {
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.deleteButton, { width: width * 0.8 }]}
+        style={[
+          styles.deleteButton,
+          { backgroundColor:"red", width: width * 0.8 },
+        ]}
         onPress={handleDeleteAccount}
       >
-        <Text style={styles.deleteButtonText}>Excluir Conta</Text>
+        <Text style={[styles.deleteButtonText, { color: theme.buttonText }]}>
+          Excluir Conta
+        </Text>
       </TouchableOpacity>
-    </View>
     </View>
   );
 };
@@ -149,8 +153,9 @@ const styles = StyleSheet.create({
   settingText: { fontSize: 18 },
   button: { padding: 15, borderRadius: 5, marginVertical: 10 },
   buttonText: { fontWeight: 'bold', textAlign: 'center' },
-  deleteButton: { backgroundColor: 'red', padding: 15, borderRadius: 5, marginTop: 20 },
-  deleteButtonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
+  deleteButton: { padding: 15, borderRadius: 5, marginTop: 20 },
+  deleteButtonText: { fontWeight: 'bold', textAlign: 'center' },
+  header:{ width:380}
 });
 
 export default SettingsScreen;

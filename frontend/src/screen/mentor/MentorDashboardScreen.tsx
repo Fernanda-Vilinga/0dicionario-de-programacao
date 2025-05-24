@@ -426,7 +426,7 @@ const MentorDashboard = () => {
     const sessionDateTime = new Date(`${sessao.data}T${sessao.horario}:00`);
     const now = new Date();
     const diffHours = (sessionDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-    return diffHours >= 24;
+    return diffHours >= 1;
   };
 
   return (

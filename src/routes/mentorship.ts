@@ -74,42 +74,83 @@ async function verificarEAtualizarSessao(docId: string, sessaoData: any): Promis
 
 export default async function mentoriaRoutes(app: FastifyInstance) {
   // Agendar sessão
-  app.post('/mentoria/agendar', async (req: FastifyRequest<{ Body: AgendarMentoriaBody }>, reply: FastifyReply) => {
-    const usuarioId = (req as any).user?.id || req.body.usuarioId;
-    const { mentorId, data, horario, categoria } = req.body;
-    if (!usuarioId || !mentorId || !data || !horario || !categoria) {
-      return reply.status(400).send({ message: 'Preencha todos os campos obrigatórios.' });
+ // Agendar sessão (com checagem de conflito para mentor e para usuário)
+app.post('/mentoria/agendar', async (
+  req: FastifyRequest<{ Body: AgendarMentoriaBody }>,
+  reply: FastifyReply
+) => {
+  const usuarioId = (req as any).user?.id || req.body.usuarioId;
+  const { mentorId, data, horario, categoria } = req.body;
+
+  // 1) Validação de campos obrigatórios
+  if (!usuarioId || !mentorId || !data || !horario || !categoria) {
+    return reply.status(400).send({ message: 'Preencha todos os campos obrigatórios.' });
+  }
+
+  try {
+    // 2) Monta os Date objects
+    const dataHoraInicio = criarDataHoraLocal(data, horario);
+    const dataHoraFim    = new Date(dataHoraInicio.getTime() + 30 * 60000);
+
+    // 3) Deve ser futura
+    if (dataHoraInicio <= new Date()) {
+      return reply
+        .status(400)
+        .send({ message: 'A mentoria deve ser agendada para uma data futura.' });
     }
 
-    try {
-      const dataHoraInicio = criarDataHoraLocal(data, horario);
-      const dataHoraFim = new Date(dataHoraInicio.getTime() + 30 * 60000);
-      if (dataHoraInicio <= new Date()) {
-        return reply.status(400).send({ message: 'A mentoria deve ser agendada para uma data futura.' });
-      }
-      const newSession = await db.collection('sessaoMentoria').add({
-        usuarioId,
-        mentorId,
-        data,
-        horario,
-        categoria,
-        status: 'pendente',
-        dataCriacao: new Date(),
-        dataHoraInicio,
-        dataHoraFim
-      });
 
-      const descricao = `Agendou uma sessão de mentoria para ${data} às ${horario}.`;
-      registrarAtividade(usuarioId, descricao, 'mentoria.agendar');
-      // Notificação
-      await dispararEvento('mentoria.agendar', usuarioId, { usuarioNome: usuarioId, data, horario });
+    // 4) Checagem de conflito para o mentoreado (busca simples + filtro em memória)
+const snapUser = await db.collection('sessaoMentoria')
+  .where('usuarioId', '==', usuarioId)
+  .where('status', 'in', ['pendente','aceita','em_curso'])
+  .get();
 
-      return reply.status(201).send({ message: 'Mentoria solicitada com sucesso.', id: newSession.id });
-    } catch (error) {
-      console.error(error);
-      return reply.status(500).send({ message: 'Erro ao solicitar mentoria.' });
-    }
+const conflitoUsuario = snapUser.docs.some(doc => {
+  const s = doc.data();
+  const inicioExist = converterTimestampParaDate(s.dataHoraInicio);
+  const fimExist    = converterTimestampParaDate(s.dataHoraFim);
+  return inicioExist < dataHoraFim && fimExist > dataHoraInicio;
+});
+
+if (conflitoUsuario) {
+  return reply.status(400).send({
+    message: 'Você já tem outra sessão agendada nesse mesmo horário.'
   });
+}
+
+    // 6) Cria a sessão no Firestore
+    const newSession = await db.collection('sessaoMentoria').add({
+      usuarioId,
+      mentorId,
+      data,
+      horario,
+      categoria,
+      status: 'pendente',
+      dataCriacao: new Date(),
+      dataHoraInicio,
+      dataHoraFim
+    });
+
+    // 7) Registro de atividade e notificação
+    const descricao = `Agendou uma sessão de mentoria para ${data} às ${horario}.`;
+    registrarAtividade(usuarioId, descricao, 'mentoria.agendar');
+    await dispararEvento('mentoria.agendar', usuarioId, {
+      usuarioNome: usuarioId,
+      data,
+      horario
+    });
+
+    return reply
+      .status(201)
+      .send({ message: 'Mentoria solicitada com sucesso.', id: newSession.id });
+
+  } catch (error) {
+    console.error(error);
+    return reply.status(500).send({ message: 'Erro ao solicitar mentoria.' });
+  }
+});
+
 
   // Expirar sessões
   app.patch('/mentoria/expirar-sessoes', async (req, reply) => {

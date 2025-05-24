@@ -94,7 +94,7 @@ const UserSessionsScreen = () => {
     const diffH =
       (new Date(`${sessao.data}T${sessao.horario}:00`).getTime() - Date.now()) /
       36e5;
-    return diffH >= 24;
+    return diffH >= 1;
   };
 
   const openCancelModal = (id: string) => {
